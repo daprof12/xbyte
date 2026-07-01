@@ -1,4 +1,4 @@
-# Pluto Wallet - PWA Architecture
+# Xbyte Wallet - PWA Architecture
 
 ## System Architecture Diagram
 
@@ -39,13 +39,13 @@
 │  ┌───────────────────────────────────────────────────────┐    │
 │  │           Cache Storage                               │    │
 │  │  ┌──────────────────────────────────────────────┐    │    │
-│  │  │  pluto-static-v1.0.0                         │    │    │
+│  │  │  xbyte-static-v1.0.0                         │    │    │
 │  │  │  - /index.html                               │    │    │
 │  │  │  - /manifest.json                            │    │    │
 │  │  │  - /icons/*.png                              │    │    │
 │  │  └──────────────────────────────────────────────┘    │    │
 │  │  ┌──────────────────────────────────────────────┐    │    │
-│  │  │  pluto-dynamic-v1.0.0                        │    │    │
+│  │  │  xbyte-dynamic-v1.0.0                        │    │    │
 │  │  │  - API responses (CoinGecko)                 │    │    │
 │  │  │  - Dynamic assets                            │    │    │
 │  │  └──────────────────────────────────────────────┘    │    │
@@ -307,7 +307,7 @@
 ## File Structure
 
 ```
-pluto-wallet/
+xbyte-wallet/
 ├── public/
 │   ├── manifest.json              # PWA manifest configuration
 │   ├── sw.js                      # Service Worker script
@@ -429,4 +429,4 @@ or fetch new   then fallback
 
 ---
 
-This architecture ensures that Pluto Wallet works seamlessly across all devices with offline support, fast loading times, and a native app-like experience.
+This architecture ensures that Xbyte Wallet works seamlessly across all devices with offline support, fast loading times, and a native app-like experience.

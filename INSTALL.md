@@ -1,6 +1,6 @@
-# 📦 Pluto Wallet - Complete Installation Guide
+# 📦 Xbyte Wallet - Complete Installation Guide
 
-This guide will walk you through setting up Pluto Wallet on your local machine, from export to running the app.
+This guide will walk you through setting up Xbyte Wallet on your local machine, from export to running the app.
 
 ---
 
@@ -74,13 +74,13 @@ If you see version numbers (e.g., `v20.10.0`), skip to Step 2.
 
 ### **Step 2: Extract Project**
 
-Extract the Pluto Wallet files to your desired location:
+Extract the Xbyte Wallet files to your desired location:
 
 ```bash
 # Example: Extract to Documents
 cd ~/Documents
 # (Extract the zip file here)
-cd pluto-wallet
+cd xbyte-wallet
 ```
 
 ### **Step 3: Install Dependencies**
@@ -110,7 +110,7 @@ You should see:
 
 Open your browser and go to: **http://localhost:5173**
 
-🎉 **Success!** You should see the Pluto Wallet landing page.
+🎉 **Success!** You should see the Xbyte Wallet landing page.
 
 ---
 
@@ -189,11 +189,11 @@ npm --version
 1. Extract the ZIP file to your preferred location:
    - **Windows:** Right-click → Extract All
    - **Mac:** Double-click the ZIP
-   - **Linux:** `unzip pluto-wallet.zip`
+   - **Linux:** `unzip xbyte-wallet.zip`
 
 2. Navigate to the folder:
    ```bash
-   cd pluto-wallet
+   cd xbyte-wallet
    ```
 
 #### **If using Git:**
@@ -201,7 +201,7 @@ npm --version
 ```bash
 # Clone repository (if applicable)
 git clone <repository-url>
-cd pluto-wallet
+cd xbyte-wallet
 ```
 
 ---
@@ -266,7 +266,7 @@ npm run dev
 
 1. Open your browser
 2. Navigate to: `http://localhost:5173`
-3. You should see the Pluto Wallet landing page
+3. You should see the Xbyte Wallet landing page
 
 **Supported browsers:**
 - ✅ Chrome/Edge (Recommended)
@@ -292,7 +292,7 @@ npm run dev
 ### **Check 3: Admin Portal**
 - [ ] Click "Admin Portal" button
 - [ ] Login with:
-  - Email: `admin@pluto.io`
+  - Email: `admin@xbyte.io`
   - Password: `Admin@123`
 - [ ] Admin dashboard loads
 
@@ -465,7 +465,7 @@ npm cache clean --force # Clear npm cache
 After installation, you should have:
 
 ```
-pluto-wallet/
+xbyte-wallet/
 ├── node_modules/          # Dependencies (auto-generated)
 ├── public/               # Static files
 │   ├── icons/           # App icons
@@ -613,7 +613,7 @@ ls -lh dist/assets/
 
 ## ✅ Installation Complete!
 
-You now have Pluto Wallet running locally! 🎉
+You now have Xbyte Wallet running locally! 🎉
 
 **Summary:**
 - ✅ Node.js installed
@@ -635,7 +635,7 @@ You now have Pluto Wallet running locally! 🎉
 
 <div align="center">
 
-Made with ❤️ by the Pluto Wallet Team
+Made with ❤️ by the Xbyte Wallet Team
 
 **[Back to README](README.md)**
 

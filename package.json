@@ -1,7 +1,7 @@
 {
-  "name": "pluto-multi-chain-wallet",
+  "name": "xbyte-multi-chain-wallet",
   "version": "1.0.0",
-  "description": "Pluto Multi-Chain Wallet - A hybrid custodial/non-custodial crypto wallet supporting BTC, ETH, SOL, BNB, and TRON",
+  "description": "Xbyte Multi-Chain Wallet - A hybrid custodial/non-custodial crypto wallet supporting BTC, ETH, SOL, BNB, and TRON",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -102,6 +102,6 @@
     "pwa",
     "mobile-app"
   ],
-  "author": "Pluto Wallet Team",
+  "author": "Xbyte Wallet Team",
   "license": "MIT"
 }

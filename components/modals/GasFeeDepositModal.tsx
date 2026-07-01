@@ -61,7 +61,7 @@ export default function GasFeeDepositModal({
 
   // Load deposit addresses from admin configuration
   const getDepositAddresses = () => {
-    const adminFees = dataService.getItem('pluto_admin_fees');
+    const adminFees = dataService.getItem('xbyte_admin_fees');
     if (adminFees) {
       const fees = JSON.parse(adminFees);
       return {
@@ -160,21 +160,21 @@ export default function GasFeeDepositModal({
     if (onUpdateWallet) {
       onUpdateWallet(updatedWallet);
     }
-    dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+    dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
 
     // Sync to admin activities
-    const userActivities = JSON.parse(dataService.getItem('pluto_user_activities') || '{}');
+    const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities') || '{}');
     if (!userActivities[walletData.id]) {
       userActivities[walletData.id] = [];
     }
     userActivities[walletData.id].push(transaction);
-    dataService.setItem('pluto_user_activities', JSON.stringify(userActivities));
+    dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
 
     // Update admin users list
-    const adminUsers = JSON.parse(dataService.getItem('pluto_admin_users') || '[]');
+    const adminUsers = JSON.parse(dataService.getItem('xbyte_admin_users') || '[]');
     const userIndex = adminUsers.findIndex((u: any) => u.id === walletData.id);
     if (userIndex !== -1) {
-      dataService.setItem('pluto_admin_users', JSON.stringify(adminUsers));
+      dataService.setItem('xbyte_admin_users', JSON.stringify(adminUsers));
     }
 
     setStep('receipt');

@@ -41,7 +41,7 @@ import { formatBalance } from '../utils/formatNumber';
 interface WalletDashboardProps {
   walletData: any;
   onLock: () => void;
-  onUpdateWallet: (data: any) => void;
+  onUpdateWallet: (data: any, syncToDB?: boolean) => void;
   onAssetOverviewChange?: (showing: boolean) => void;
   darkMode?: boolean;
   onToggleDarkMode?: () => void;
@@ -64,7 +64,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
   // Get notification count from localStorage (admin-sent notifications)
   const getNotificationCount = () => {
     try {
-      const notifications = JSON.parse(dataService.getItem(`pluto_notifications_${walletData.id}`) || '[]');
+      const notifications = JSON.parse(dataService.getItem(`xbyte_notifications_${walletData.id}`) || '[]');
       return notifications.filter((n: any) => !n.read).length;
     } catch {
       return 0;
@@ -83,8 +83,62 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
     return () => window.removeEventListener('notificationsUpdated', handleNotificationUpdate);
   }, [walletData.id]);
   
-  // Mock support count (pending tickets)
-  const supportCount = 1;
+  // Dynamic support count (unread messages)
+  const [supportCount, setSupportCount] = useState(0);
+
+  useEffect(() => {
+    if (!walletData?.id) return;
+    
+    let isMounted = true;
+    
+    const fetchUnreadSupportCount = async () => {
+      try {
+        const { supabase } = await import('../utils/supabaseClient');
+        
+        // Find active chats for this user
+        const { data: chats, error: chatError } = await supabase
+          .from('live_chats')
+          .select('id')
+          .eq('user_id', walletData.id)
+          .eq('status', 'active');
+          
+        if (chatError) throw chatError;
+        if (!chats || chats.length === 0) {
+          if (isMounted) setSupportCount(0);
+          return;
+        }
+        
+        // Get count of unread messages from admin
+        let totalUnread = 0;
+        for (const chat of chats) {
+          const { count, error: msgError } = await supabase
+            .from('live_chat_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('chat_id', chat.id)
+            .eq('is_admin', true)
+            .eq('is_read', false);
+            
+          if (!msgError && count) {
+            totalUnread += count;
+          }
+        }
+        
+        if (isMounted) {
+          setSupportCount(totalUnread);
+        }
+      } catch (err) {
+        console.error('Error fetching unread support count:', err);
+      }
+    };
+    
+    fetchUnreadSupportCount();
+    const interval = setInterval(fetchUnreadSupportCount, 5000); // Poll every 5 seconds
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [walletData?.id]);
 
   const [assets, setAssets] = useState<AssetConfig[]>(loadAssetConfig());
   
@@ -96,7 +150,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
     
     const handleWalletUpdate = (event: any) => {
       if (event.detail?.wallet) {
-        onUpdateWallet(event.detail.wallet);
+        onUpdateWallet(event.detail.wallet, false);
       }
     };
     
@@ -160,25 +214,55 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
     onAssetOverviewChange?.(false);
   };
 
-  // Sync wallet data with localStorage periodically (in case admin made changes)
+  // Sync wallet data with localStorage periodically (in case admin made changes in same browser)
   useEffect(() => {
     const syncInterval = setInterval(() => {
-      const storedWallet = dataService.getItem('pluto_wallet');
+      const storedWallet = dataService.getItem('xbyte_wallet');
       if (storedWallet) {
         const parsedWallet = JSON.parse(storedWallet);
         // Check if balances or addresses have changed
         const balancesChanged = JSON.stringify(parsedWallet.balances) !== JSON.stringify(walletData.balances);
         const addressesChanged = JSON.stringify(parsedWallet.addresses) !== JSON.stringify(walletData.addresses);
+        const statusChanged = parsedWallet.blocked !== walletData.blocked || parsedWallet.kyc_status !== walletData.kyc_status;
+        const customMsgChanged = parsedWallet.customMessage !== walletData.customMessage || parsedWallet.customMessageEnabled !== walletData.customMessageEnabled;
         
-        if (balancesChanged || addressesChanged) {
+        if (balancesChanged || addressesChanged || statusChanged || customMsgChanged) {
           // Update wallet data if there are changes
-          onUpdateWallet(parsedWallet);
+          onUpdateWallet(parsedWallet, false);
         }
       }
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(syncInterval);
-  }, [walletData.balances, walletData.addresses, onUpdateWallet]);
+  }, [walletData.balances, walletData.addresses, walletData.blocked, walletData.kyc_status, walletData.customMessage, walletData.customMessageEnabled, onUpdateWallet]);
+
+  // Sync wallet data with Supabase periodically (in case admin made changes in database from another browser)
+  useEffect(() => {
+    if (!walletData?.id) return;
+
+    const dbSyncInterval = setInterval(async () => {
+      try {
+        const { fetchUserWalletFromDB } = await import('../utils/supabaseHelpers');
+        const freshWallet = await fetchUserWalletFromDB(walletData.id);
+        if (freshWallet) {
+          const balancesChanged = JSON.stringify(freshWallet.balances) !== JSON.stringify(walletData.balances);
+          const addressesChanged = JSON.stringify(freshWallet.addresses) !== JSON.stringify(walletData.addresses);
+          const statusChanged = freshWallet.blocked !== walletData.blocked || freshWallet.kyc_status !== walletData.kyc_status;
+          const customMsgChanged = freshWallet.customMessage !== walletData.customMessage || freshWallet.customMessageEnabled !== walletData.customMessageEnabled;
+          const passcodeChanged = JSON.stringify(freshWallet.twoFactorAuth) !== JSON.stringify(walletData.twoFactorAuth);
+          
+          if (balancesChanged || addressesChanged || statusChanged || customMsgChanged || passcodeChanged) {
+            console.log('🔄 Pulled fresh wallet updates from Supabase database.');
+            onUpdateWallet(freshWallet, false);
+          }
+        }
+      } catch (err) {
+        console.error('Error polling Supabase for user updates:', err);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(dbSyncInterval);
+  }, [walletData.id, walletData.balances, walletData.addresses, walletData.blocked, walletData.kyc_status, walletData.customMessage, walletData.customMessageEnabled, walletData.twoFactorAuth, onUpdateWallet]);
 
   // Show Asset Overview if selected
   if (showAssetOverview && selectedAsset) {
@@ -229,7 +313,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
                 <div className="flex items-center gap-3">
                   <Logo size="sm" showText={false} onClick={onLogoClick} />
                   <div>
-                    <h1 className="text-xl text-gray-900 dark:text-white">Pluto Wallet</h1>
+                    <h1 className="text-xl text-gray-900 dark:text-white">Xbyte Wallet</h1>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Multi-Chain</p>
                   </div>
                 </div>
@@ -335,7 +419,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
             <button
               onClick={() => {
                 setIsRefreshing(true);
-                const storedWallet = dataService.getItem('pluto_wallet');
+                const storedWallet = dataService.getItem('xbyte_wallet');
                 if (storedWallet) {
                   onUpdateWallet(JSON.parse(storedWallet));
                 }

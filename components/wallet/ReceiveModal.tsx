@@ -39,7 +39,7 @@ export default function ReceiveModal({ walletData, onClose, selectedAsset }: Rec
   };
 
   const handleShare = async () => {
-    const shareText = `Send ${asset.replace('_TRC20', '')} to my Pluto Wallet:\n${address}`;
+    const shareText = `Send ${asset.replace('_TRC20', '')} to my Xbyte Wallet:\n${address}`;
     
     // Check if Web Share API is available
     if (navigator.share) {

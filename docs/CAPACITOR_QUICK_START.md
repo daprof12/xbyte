@@ -1,4 +1,4 @@
-# Capacitor Quick Start - Pluto Wallet
+# Capacitor Quick Start - Xbyte Wallet
 
 ## TL;DR
 
@@ -35,8 +35,8 @@ npx cap open android  # Opens Android Studio
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.plutowallet.app',
-  appName: 'Pluto Wallet',
+  appId: 'com.xbytewallet.app',
+  appName: 'Xbyte Wallet',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
@@ -107,16 +107,16 @@ export const storage = {
 
 **Before:**
 ```typescript
-localStorage.setItem('pluto_wallet', JSON.stringify(data));
-const data = JSON.parse(localStorage.getItem('pluto_wallet') || '{}');
+localStorage.setItem('xbyte_wallet', JSON.stringify(data));
+const data = JSON.parse(localStorage.getItem('xbyte_wallet') || '{}');
 ```
 
 **After:**
 ```typescript
 import { storage } from './utils/platform';
 
-await storage.set('pluto_wallet', data);
-const data = await storage.get('pluto_wallet') || {};
+await storage.set('xbyte_wallet', data);
+const data = await storage.get('xbyte_wallet') || {};
 ```
 
 **Files to update:**
@@ -455,7 +455,7 @@ npx cap open android
 ## Folder Structure After Setup
 
 ```
-pluto-wallet/
+xbyte-wallet/
 ├── src/                          # Your React app
 ├── public/                       # Static assets
 ├── dist/                         # Build output
@@ -544,4 +544,4 @@ pluto-wallet/
 **Cost:** $124 (first year)
 **Result:** Native iOS + Android apps from your web code
 
-**Your Pluto Wallet is ready for the App Store and Play Store!** 🚀
+**Your Xbyte Wallet is ready for the App Store and Play Store!** 🚀

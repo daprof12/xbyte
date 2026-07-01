@@ -1,4 +1,4 @@
-# 🚀 Pluto Wallet - Native App Quick Start
+# 🚀 Xbyte Wallet - Native App Quick Start
 
 ## TL;DR - What You Have Now
 
@@ -81,8 +81,8 @@ const handleSave = async () => { ... }
 ```bash
 # 1. Export code from Figma Make
 # 2. Create new folder
-mkdir pluto-wallet-native
-cd pluto-wallet-native
+mkdir xbyte-wallet-native
+cd xbyte-wallet-native
 
 # 3. Copy all your files
 
@@ -106,8 +106,8 @@ npm install @capacitor/preferences
 
 # Initialize
 npx cap init
-# App name: Pluto Multi-Chain Wallet
-# App ID: com.plutowallet.app
+# App name: Xbyte Multi-Chain Wallet
+# App ID: com.xbytewallet.app
 # Web dir: dist
 
 # Add platforms
@@ -139,7 +139,7 @@ In Xcode:
 - [ ] Add app icons (all sizes)
 - [ ] Add splash screen
 - [ ] Configure signing (Apple Developer account)
-- [ ] Set Bundle ID: com.plutowallet.app
+- [ ] Set Bundle ID: com.xbytewallet.app
 - [ ] Test on simulator
 - [ ] Test on real iPhone
 - [ ] Archive for App Store

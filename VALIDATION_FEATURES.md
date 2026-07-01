@@ -1,7 +1,7 @@
 # Address Validation Implementation
 
 ## Overview
-Comprehensive blockchain address validation has been implemented for all supported networks in the Pluto Multi-Chain Wallet.
+Comprehensive blockchain address validation has been implemented for all supported networks in the Xbyte Multi-Chain Wallet.
 
 ## Supported Networks & Validation Rules
 

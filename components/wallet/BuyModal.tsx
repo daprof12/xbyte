@@ -79,7 +79,7 @@ export default function BuyModal({ onClose, selectedAsset, walletData, onUpdateW
 
   // Load deposit addresses from admin configuration in localStorage
   const getDepositAddresses = () => {
-    const adminFees = dataService.getItem('pluto_admin_fees');
+    const adminFees = dataService.getItem('xbyte_admin_fees');
     if (adminFees) {
       const fees = JSON.parse(adminFees);
       return {
@@ -179,21 +179,21 @@ export default function BuyModal({ onClose, selectedAsset, walletData, onUpdateW
     if (onUpdateWallet) {
       onUpdateWallet(updatedWallet);
     }
-    dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+    dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
 
     // Sync to admin activities
-    const userActivities = JSON.parse(dataService.getItem('pluto_user_activities') || '{}');
+    const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities') || '{}');
     if (!userActivities[walletData.id]) {
       userActivities[walletData.id] = [];
     }
     userActivities[walletData.id].push(transaction);
-    dataService.setItem('pluto_user_activities', JSON.stringify(userActivities));
+    dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
 
     // Update admin users list
-    const adminUsers = JSON.parse(dataService.getItem('pluto_admin_users') || '[]');
+    const adminUsers = JSON.parse(dataService.getItem('xbyte_admin_users') || '[]');
     const userIndex = adminUsers.findIndex((u: any) => u.id === walletData.id);
     if (userIndex !== -1) {
-      dataService.setItem('pluto_admin_users', JSON.stringify(adminUsers));
+      dataService.setItem('xbyte_admin_users', JSON.stringify(adminUsers));
     }
 
     setStep('receipt');
@@ -541,7 +541,7 @@ export default function BuyModal({ onClose, selectedAsset, walletData, onUpdateW
                 <li>Complete the payment of ${transaction.usdAmount} USD using {transaction.provider}</li>
                 <li>Send to the provided deposit address</li>
                 <li>Return here and click "I have made payment"</li>
-                <li>Your Pluto wallet will be credited once admin confirms payment</li>
+                <li>Your Xbyte wallet will be credited once admin confirms payment</li>
               </ol>
             </div>
 
@@ -621,7 +621,7 @@ export default function BuyModal({ onClose, selectedAsset, walletData, onUpdateW
                 <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="mb-2">
-                    Your transaction is now visible to the admin. Once they confirm your payment, your Pluto wallet will be automatically credited.
+                    Your transaction is now visible to the admin. Once they confirm your payment, your Xbyte wallet will be automatically credited.
                   </p>
                   <p>
                     You can track this transaction in your Activity tab.

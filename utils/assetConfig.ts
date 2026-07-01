@@ -23,7 +23,7 @@ const defaultAssetConfig: AssetConfig[] = [
   { symbol: 'USDT', name: 'Tether', color: 'bg-green-600', icon: '₮', logoUrl: usdtLogo, coinGeckoId: 'tether' }
 ];
 
-const STORAGE_KEY = 'pluto_asset_config';
+const STORAGE_KEY = 'xbyte_asset_config';
 
 /**
  * Load asset configurations from localStorage or return defaults

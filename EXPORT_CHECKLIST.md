@@ -1,8 +1,8 @@
-# ✅ Pluto Wallet - Export Checklist
+# ✅ Xbyte Wallet - Export Checklist
 
 ## 📦 Complete Export Package - Ready to Download!
 
-This checklist ensures you have everything needed to run Pluto Wallet locally and deploy to native platforms.
+This checklist ensures you have everything needed to run Xbyte Wallet locally and deploy to native platforms.
 
 ---
 
@@ -72,8 +72,8 @@ This checklist ensures you have everything needed to run Pluto Wallet locally an
 ```bash
 # Extract to your desired location
 cd ~/Documents
-unzip pluto-wallet.zip
-cd pluto-wallet
+unzip xbyte-wallet.zip
+cd xbyte-wallet
 ```
 
 ### **2. Install Dependencies** (2-5 min)
@@ -236,7 +236,7 @@ Before making major changes:
 
 ```bash
 # Create backup
-cp -r pluto-wallet pluto-wallet-backup-$(date +%Y%m%d)
+cp -r xbyte-wallet xbyte-wallet-backup-$(date +%Y%m%d)
 
 # Or use Git
 git init
@@ -445,7 +445,7 @@ Follow the installation guide to get started in 5 minutes!
 
 <div align="center">
 
-**🚀 Your Pluto Wallet Export is Complete! 🚀**
+**🚀 Your Xbyte Wallet Export is Complete! 🚀**
 
 Ready to build something amazing!
 

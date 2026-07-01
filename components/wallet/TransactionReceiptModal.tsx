@@ -51,9 +51,9 @@ const getStatusColor = (status: string) => {
 
 const getTransactionTypeLabel = (type: string) => {
   switch (type) {
-    case 'admin_credit':
+    case 'credit':
       return 'Credit';
-    case 'admin_debit':
+    case 'debit':
       return 'Debit';
     case 'gas_fee':
       return 'Gas Fee';

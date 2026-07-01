@@ -1,9 +1,9 @@
-// Pluto Multi-Chain Wallet - Service Worker
+// Xbyte Multi-Chain Wallet - Service Worker
 // Version 1.0.0
 
-const CACHE_NAME = 'pluto-wallet-v1.0.0';
-const STATIC_CACHE_NAME = 'pluto-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'pluto-dynamic-v1.0.0';
+const CACHE_NAME = 'xbyte-wallet-v1.0.0';
+const STATIC_CACHE_NAME = 'xbyte-static-v1.0.0';
+const DYNAMIC_CACHE_NAME = 'xbyte-dynamic-v1.0.0';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -46,7 +46,7 @@ self.addEventListener('activate', (event) => {
               // Delete old caches
               return cacheName !== STATIC_CACHE_NAME && 
                      cacheName !== DYNAMIC_CACHE_NAME &&
-                     cacheName.startsWith('pluto-');
+                     cacheName.startsWith('xbyte-');
             })
             .map((cacheName) => {
               console.log('[Service Worker] Deleting old cache:', cacheName);
@@ -211,7 +211,7 @@ self.addEventListener('sync', (event) => {
 // Push notifications (future enhancement)
 self.addEventListener('push', (event) => {
   const options = {
-    body: event.data ? event.data.text() : 'New notification from Pluto Wallet',
+    body: event.data ? event.data.text() : 'New notification from Xbyte Wallet',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/badge-72x72.png',
     vibrate: [200, 100, 200],
@@ -232,7 +232,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('Pluto Wallet', options)
+    self.registration.showNotification('Xbyte Wallet', options)
   );
 });
 

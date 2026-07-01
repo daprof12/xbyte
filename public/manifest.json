@@ -1,6 +1,6 @@
 {
-  "name": "Pluto Multi-Chain Wallet",
-  "short_name": "Pluto Wallet",
+  "name": "Xbyte Multi-Chain Wallet",
+  "short_name": "Xbyte Wallet",
   "description": "A beautiful multi-chain cryptocurrency wallet supporting BTC, ETH, SOL, BNB, and TRON",
   "start_url": "/",
   "display": "standalone",

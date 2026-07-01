@@ -1,4 +1,4 @@
-# 🚀 Pluto Wallet Migration - Quick Start
+# 🚀 Xbyte Wallet Migration - Quick Start
 
 ## ✅ All Errors Fixed!
 
@@ -82,4 +82,4 @@ npm run dev
 
 ## ✅ Ready to Go!
 
-Your Pluto Wallet now has a working Supabase migration system. Just configure your credentials and you're ready to sync data to the cloud! 🎉
+Your Xbyte Wallet now has a working Supabase migration system. Just configure your credentials and you're ready to sync data to the cloud! 🎉

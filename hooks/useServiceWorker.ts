@@ -67,7 +67,7 @@ export function useServiceWorker() {
               console.log('[PWA] New Service Worker installed, ready to activate');
               
               // Notify user about update
-              if (confirm('A new version of Pluto Wallet is available. Update now?')) {
+              if (confirm('A new version of Xbyte Wallet is available. Update now?')) {
                 // Tell the new service worker to skip waiting
                 newWorker.postMessage({ type: 'SKIP_WAITING' });
                 

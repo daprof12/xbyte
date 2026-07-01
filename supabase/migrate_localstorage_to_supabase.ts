@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PLUTO WALLET - LOCALSTORAGE TO SUPABASE MIGRATION SCRIPT
+ * XBYTE WALLET - LOCALSTORAGE TO SUPABASE MIGRATION SCRIPT
  * ============================================================================
  * This script migrates all localStorage data to Supabase database
  * 
@@ -97,7 +97,7 @@ async function migrateWalletData(
   result: MigrationResult
 ): Promise<void> {
   try {
-    const walletDataStr = localStorage.getItem('pluto_wallet');
+    const walletDataStr = localStorage.getItem('xbyte_wallet');
     if (!walletDataStr) {
       console.log('ℹ️ No wallet data found in localStorage');
       return;
@@ -286,8 +286,8 @@ async function migrateTransactions(
       return;
     }
 
-    // Migrate from pluto_wallet transactions
-    const walletDataStr = localStorage.getItem('pluto_wallet');
+    // Migrate from xbyte_wallet transactions
+    const walletDataStr = localStorage.getItem('xbyte_wallet');
     if (walletDataStr) {
       const walletData = JSON.parse(walletDataStr);
       if (walletData.transactions && Array.isArray(walletData.transactions)) {
@@ -295,8 +295,8 @@ async function migrateTransactions(
       }
     }
 
-    // Migrate from pluto_user_activities
-    const activitiesStr = localStorage.getItem('pluto_user_activities');
+    // Migrate from xbyte_user_activities
+    const activitiesStr = localStorage.getItem('xbyte_user_activities');
     if (activitiesStr) {
       const activities = JSON.parse(activitiesStr);
       const userActivities = activities[userId];
@@ -394,7 +394,7 @@ async function migrateUserSettings(
   result: MigrationResult
 ): Promise<void> {
   try {
-    const walletDataStr = localStorage.getItem('pluto_wallet');
+    const walletDataStr = localStorage.getItem('xbyte_wallet');
     if (!walletDataStr) return;
 
     const walletData = JSON.parse(walletDataStr);
@@ -423,7 +423,7 @@ async function migrateUserSettings(
  */
 async function migrateAssets(result: MigrationResult): Promise<void> {
   try {
-    const assetsStr = localStorage.getItem('pluto_asset_config');
+    const assetsStr = localStorage.getItem('xbyte_asset_config');
     if (!assetsStr) {
       console.log('ℹ️ No custom assets found in localStorage');
       return;
@@ -465,7 +465,7 @@ async function migrateAssets(result: MigrationResult): Promise<void> {
  */
 async function migrateAdminFees(result: MigrationResult): Promise<void> {
   try {
-    const feesStr = localStorage.getItem('pluto_admin_fees');
+    const feesStr = localStorage.getItem('xbyte_admin_fees');
     if (!feesStr) {
       console.log('ℹ️ No admin fees found in localStorage');
       return;
@@ -517,7 +517,7 @@ async function migrateNotifications(
   result: MigrationResult
 ): Promise<void> {
   try {
-    const notificationsStr = localStorage.getItem(`pluto_notifications_${userId}`);
+    const notificationsStr = localStorage.getItem(`xbyte_notifications_${userId}`);
     if (!notificationsStr) {
       console.log('ℹ️ No notifications found in localStorage');
       return;
@@ -557,7 +557,7 @@ async function migrateSupportTickets(
   result: MigrationResult
 ): Promise<void> {
   try {
-    const ticketsStr = localStorage.getItem('pluto_support_tickets');
+    const ticketsStr = localStorage.getItem('xbyte_support_tickets');
     if (!ticketsStr) {
       console.log('ℹ️ No support tickets found in localStorage');
       return;
@@ -598,7 +598,7 @@ async function migrateSupportTickets(
  */
 async function migrateAuditLogs(result: MigrationResult): Promise<void> {
   try {
-    const logsStr = localStorage.getItem('pluto_admin_audit_logs');
+    const logsStr = localStorage.getItem('xbyte_admin_audit_logs');
     if (!logsStr) {
       console.log('ℹ️ No audit logs found in localStorage');
       return;
@@ -636,11 +636,11 @@ export function clearLocalStorageAfterMigration(): void {
   );
 
   if (confirmation) {
-    const keysToKeep = ['pluto_device_id', 'pluto_session_active'];
+    const keysToKeep = ['xbyte_device_id', 'xbyte_session_active'];
     const allKeys = Object.keys(localStorage);
     
     allKeys.forEach(key => {
-      if (key.startsWith('pluto_') && !keysToKeep.includes(key)) {
+      if (key.startsWith('xbyte_') && !keysToKeep.includes(key)) {
         localStorage.removeItem(key);
       }
     });

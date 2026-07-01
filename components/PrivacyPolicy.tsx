@@ -16,7 +16,7 @@ export default function PrivacyPolicy({ onBack, darkMode }: PrivacyPolicyProps) 
                 <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2 cursor-pointer" onClick={onBack}>
                         <Logo />
-                        <span className="text-xl font-bold font-mono">Pluto</span>
+                        <span className="text-xl font-bold font-mono">Xbyte</span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={onBack}>
                         <ArrowLeft className="w-4 h-4 mr-2" />
@@ -35,7 +35,7 @@ export default function PrivacyPolicy({ onBack, darkMode }: PrivacyPolicyProps) 
                     <section>
                         <h2 className="text-2xl font-semibold mb-4 text-purple-600 dark:text-purple-400">1. Non-Custodial Nature</h2>
                         <p>
-                            Pluto Wallet is a non-custodial cryptocurrency wallet. This means that <strong>we do not have access to your private keys, seed phrases, or funds.</strong> Your private keys are generated locally on your device, encrypted, and never transmitted to our servers or any third-party. You are solely responsible for securely storing your seed phrase. If you lose your seed phrase, we cannot recover your funds.
+                            Xbyte Wallet is a non-custodial cryptocurrency wallet. This means that <strong>we do not have access to your private keys, seed phrases, or funds.</strong> Your private keys are generated locally on your device, encrypted, and never transmitted to our servers or any third-party. You are solely responsible for securely storing your seed phrase. If you lose your seed phrase, we cannot recover your funds.
                         </p>
                     </section>
 
@@ -89,7 +89,7 @@ export default function PrivacyPolicy({ onBack, darkMode }: PrivacyPolicyProps) 
                         <p>
                             If you have any questions or concerns regarding this Privacy Policy or our data practices, please contact us at:
                             <br />
-                            <strong>Email:</strong> privacy@plutowallet.app
+                            <strong>Email:</strong> privacy@xbytewallet.app
                         </p>
                     </section>
                 </div>

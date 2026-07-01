@@ -1,8 +1,8 @@
-# 📦 Pluto Wallet - Export Package
+# 📦 Xbyte Wallet - Export Package
 
 ## ✅ Package Ready for Export!
 
-This export package contains everything you need to run Pluto Wallet locally and deploy to Web, iOS, and Android.
+This export package contains everything you need to run Xbyte Wallet locally and deploy to Web, iOS, and Android.
 
 ---
 
@@ -45,8 +45,8 @@ This export package contains everything you need to run Pluto Wallet locally and
 
 ```bash
 # Create project folder
-mkdir pluto-wallet
-cd pluto-wallet
+mkdir xbyte-wallet
+cd xbyte-wallet
 
 # Extract all files from this export
 # (Copy all files from Figma Make to this folder)
@@ -83,7 +83,7 @@ npm run dev
 ## 📁 Complete File Structure
 
 ```
-pluto-wallet/
+xbyte-wallet/
 │
 ├── 📄 Configuration Files
 │   ├── package.json              # Dependencies & scripts
@@ -216,7 +216,7 @@ pluto-wallet/
 ### **1. package.json**
 ```json
 {
-  "name": "pluto-wallet",
+  "name": "xbyte-wallet",
   "version": "1.0.0",
   "dependencies": {
     "react": "^18.x",
@@ -239,8 +239,8 @@ pluto-wallet/
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.plutowallet.app',
-  appName: 'Pluto Multi-Chain Wallet',
+  appId: 'com.xbytewallet.app',
+  appName: 'Xbyte Multi-Chain Wallet',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
@@ -297,8 +297,8 @@ Before starting, install:
 
 ```bash
 # Create project directory
-mkdir pluto-wallet
-cd pluto-wallet
+mkdir xbyte-wallet
+cd xbyte-wallet
 
 # Copy all exported files here
 # (All files from Figma Make export)
@@ -353,7 +353,7 @@ http://localhost:5173
 ```
 
 **You should see:**
-- ✅ Pluto Wallet landing page
+- ✅ Xbyte Wallet landing page
 - ✅ Beautiful gradient background
 - ✅ "Create Wallet" and "Import Wallet" buttons
 - ✅ Dark mode toggle working
@@ -371,7 +371,7 @@ After installation, verify everything works:
 - [ ] Create wallet flow works
 - [ ] Import wallet flow works
 - [ ] Send/Receive/Swap/Buy modals open
-- [ ] Admin login works (admin@pluto.io / Admin@123)
+- [ ] Admin login works (admin@xbyte.io / Admin@123)
 - [ ] Admin dashboard loads
 - [ ] All charts render
 - [ ] PWA install prompt appears (after a few seconds)
@@ -425,8 +425,8 @@ npm install @capacitor/preferences
 
 # Initialize Capacitor
 npx cap init
-# App name: Pluto Multi-Chain Wallet
-# App ID: com.plutowallet.app
+# App name: Xbyte Multi-Chain Wallet
+# App ID: com.xbytewallet.app
 # Web dir: dist
 
 # Add platforms
@@ -588,7 +588,7 @@ netlify deploy --prod --dir=dist
 npm run build
 
 # Push dist folder to gh-pages branch
-# Your app will be live at: https://username.github.io/pluto-wallet
+# Your app will be live at: https://username.github.io/xbyte-wallet
 ```
 
 ---
@@ -719,7 +719,7 @@ This package includes:
 
 ## 🎉 You're All Set!
 
-Your Pluto Wallet export package is complete and ready to:
+Your Xbyte Wallet export package is complete and ready to:
 
 ✅ Run locally (`npm install` → `npm run dev`)
 ✅ Deploy to web (Vercel, Netlify, etc.)

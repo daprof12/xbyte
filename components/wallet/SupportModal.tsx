@@ -40,54 +40,152 @@ export default function SupportModal({ onClose, walletData }: SupportModalProps)
     { value: 'urgent', label: 'Urgent', icon: <XCircle className="w-3 h-3" />, color: 'text-red-600' }
   ];
 
-  // Load user tickets from localStorage
+  const fetchUserTickets = async () => {
+    if (!walletData?.id) return;
+    
+    try {
+      const { supabase } = await import('../../utils/supabaseClient');
+      const { data: ticketsData, error: ticketsError } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', walletData.id)
+        .order('created_at', { ascending: false });
+        
+      if (!ticketsError && ticketsData) {
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('support_ticket_messages')
+          .select('*')
+          .order('created_at', { ascending: true });
+          
+        if (!messagesError && messagesData) {
+          const mapped = ticketsData.map((ticket: any) => {
+            const ticketMessages = messagesData
+              .filter((m: any) => m.ticket_id === ticket.id)
+              .map((m: any) => ({
+                sender: m.is_admin_reply ? 'admin' : 'user',
+                senderName: m.is_admin_reply ? 'Support Team' : (walletData.username || walletData.fullName || 'User'),
+                message: m.message,
+                timestamp: m.created_at
+              }));
+              
+            return {
+              id: ticket.id,
+              userId: ticket.user_id,
+              subject: ticket.subject,
+              category: ticket.category,
+              priority: ticket.priority,
+              status: ticket.status === 'in_progress' ? 'in-progress' : ticket.status,
+              created: ticket.created_at,
+              updated: ticket.updated_at,
+              messages: ticketMessages
+            };
+          });
+          setTickets(mapped);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user tickets from Supabase:', err);
+    }
+  };
+
+  const fetchUserChat = async () => {
+    if (!walletData?.id) return;
+
+    try {
+      const { supabase } = await import('../../utils/supabaseClient');
+      // 1. Get or create chat row
+      let { data: chatData, error: chatError } = await supabase
+        .from('live_chats')
+        .select('*')
+        .eq('user_id', walletData.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (chatError) {
+        console.error('Error fetching user live chat:', chatError.message);
+        return;
+      }
+
+      if (!chatData) {
+        // Create new active chat row
+        const { data: newChat, error: createError } = await supabase
+          .from('live_chats')
+          .insert({
+            user_id: walletData.id,
+            status: 'active'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating user live chat:', createError.message);
+          return;
+        }
+        chatData = newChat;
+      }
+
+      // 2. Fetch messages for this chat
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('live_chat_messages')
+        .select('*')
+        .eq('chat_id', chatData.id)
+        .order('created_at', { ascending: true });
+
+      if (!messagesError && messagesData) {
+        // Mark unread admin messages as read
+        const unreadAdminMessageIds = messagesData
+          .filter((m: any) => m.is_admin && !m.is_read)
+          .map((m: any) => m.id);
+
+        if (unreadAdminMessageIds.length > 0) {
+          // Update in background
+          supabase
+            .from('live_chat_messages')
+            .update({ is_read: true })
+            .in('id', unreadAdminMessageIds)
+            .then(({ error }) => {
+              if (error) console.error('Error marking messages as read:', error.message);
+            });
+        }
+
+        const mappedMessages = messagesData.map((m: any) => ({
+          sender: m.is_admin ? 'admin' : 'user',
+          senderName: m.is_admin ? 'Support Agent' : (walletData.username || walletData.fullName || 'User'),
+          message: m.message,
+          timestamp: m.created_at
+        }));
+
+        setCurrentChat({
+          id: chatData.id,
+          userId: chatData.user_id,
+          status: chatData.status,
+          created: chatData.started_at,
+          updated: chatData.started_at,
+          messages: mappedMessages
+        });
+      }
+    } catch (err) {
+      console.error('Error in live chat polling:', err);
+    }
+  };
+
+  // Load user tickets on mount & poll every 5 seconds
   useEffect(() => {
     if (walletData?.id) {
-      const userTickets = dataService.getItem(`pluto_tickets_${walletData.id}`);
-      if (userTickets) {
-        setTickets(JSON.parse(userTickets));
-      }
-    }
-  }, [walletData]);
-
-  // Load or create live chat
-  useEffect(() => {
-    if (walletData?.id && showLiveChat) {
-      const allChats = JSON.parse(dataService.getItem('pluto_live_chats') || '[]');
-      const userChat = allChats.find((chat: any) => chat.userId === walletData.id);
-      
-      if (userChat) {
-        setCurrentChat(userChat);
-      } else {
-        // Create new chat
-        const newChat = {
-          id: `CHT-${Date.now()}`,
-          userId: walletData.id,
-          userEmail: walletData.email || 'user@example.com',
-          userName: walletData.username || 'User',
-          userPhone: walletData.phone || '',
-          status: 'active',
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-          messages: []
-        };
-        setCurrentChat(newChat);
-        allChats.push(newChat);
-        dataService.setItem('pluto_live_chats', JSON.stringify(allChats));
-      }
-
-      // Auto-refresh chat every 2 seconds
-      const interval = setInterval(() => {
-        const updatedChats = JSON.parse(dataService.getItem('pluto_live_chats') || '[]');
-        const updatedUserChat = updatedChats.find((chat: any) => chat.userId === walletData.id);
-        if (updatedUserChat) {
-          setCurrentChat(updatedUserChat);
-        }
-      }, 2000);
-
+      fetchUserTickets();
+      const interval = setInterval(fetchUserTickets, 5000);
       return () => clearInterval(interval);
     }
-  }, [walletData, showLiveChat]);
+  }, [walletData?.id]);
+
+  // Load or create live chat when live chat view is active, poll every 2 seconds
+  useEffect(() => {
+    if (walletData?.id && showLiveChat) {
+      fetchUserChat();
+      const interval = setInterval(fetchUserChat, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [walletData?.id, showLiveChat]);
 
   const handleStartLiveChat = () => {
     if (!walletData?.id) {
@@ -100,30 +198,25 @@ export default function SupportModal({ onClose, walletData }: SupportModalProps)
   const handleSendChatMessage = () => {
     if (!chatMessage.trim() || !currentChat || !walletData?.id) return;
 
-    const newMessage = {
-      sender: 'user',
-      senderName: walletData.username || 'User',
-      message: chatMessage,
-      timestamp: new Date().toISOString()
-    };
-
-    const updatedChat = {
-      ...currentChat,
-      updated: new Date().toISOString(),
-      messages: [...currentChat.messages, newMessage]
-    };
-
-    // Update local state
-    setCurrentChat(updatedChat);
+    const chatMsgText = chatMessage.trim();
     setChatMessage('');
 
-    // Update localStorage
-    const allChats = JSON.parse(dataService.getItem('pluto_live_chats') || '[]');
-    const chatIndex = allChats.findIndex((chat: any) => chat.id === currentChat.id);
-    if (chatIndex !== -1) {
-      allChats[chatIndex] = updatedChat;
-      dataService.setItem('pluto_live_chats', JSON.stringify(allChats));
-    }
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase
+        .from('live_chat_messages')
+        .insert({
+          chat_id: currentChat.id,
+          sender_id: walletData.id,
+          message: chatMsgText,
+          is_admin: false
+        });
+
+      if (error) {
+        console.error('Error sending chat message:', error.message);
+        return;
+      }
+      fetchUserChat();
+    });
   };
 
   const handleCloseLiveChat = () => {
@@ -138,81 +231,81 @@ export default function SupportModal({ onClose, walletData }: SupportModalProps)
       return;
     }
 
-    const ticketId = `TKT-${Date.now()}`;
-    const newTicket = {
-      id: ticketId,
-      userId: walletData.id,
-      userEmail: walletData.email || 'user@example.com',
-      userName: walletData.username || 'User',
-      subject: ticketSubject,
-      category: ticketCategory,
-      priority: ticketPriority,
-      status: 'open',
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
-      messages: [
-        {
-          sender: 'user',
-          senderName: walletData.username || 'User',
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const ticketNumber = `TKT-${Date.now()}`;
+      
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('support_tickets')
+        .insert({
+          ticket_number: ticketNumber,
+          user_id: walletData.id,
+          subject: ticketSubject,
+          category: ticketCategory,
+          priority: ticketPriority,
+          status: 'open'
+        })
+        .select()
+        .single();
+
+      if (ticketError) {
+        console.error('Error creating support ticket in Supabase:', ticketError.message);
+        alert(`Error creating ticket: ${ticketError.message}`);
+        return;
+      }
+
+      // Create the initial ticket message
+      const { error: msgError } = await supabase
+        .from('support_ticket_messages')
+        .insert({
+          ticket_id: ticketData.id,
+          user_id: walletData.id,
           message: ticketMessage,
-          timestamp: new Date().toISOString()
-        }
-      ]
-    };
+          is_admin_reply: false
+        });
 
-    // Save to user's tickets
-    const updatedTickets = [newTicket, ...tickets];
-    setTickets(updatedTickets);
-    dataService.setItem(`pluto_tickets_${walletData.id}`, JSON.stringify(updatedTickets));
-
-    // Save to global admin tickets
-    const allTickets = JSON.parse(dataService.getItem('pluto_support_tickets') || '[]');
-    allTickets.push(newTicket);
-    dataService.setItem('pluto_support_tickets', JSON.stringify(allTickets));
-
-    setTicketSubject('');
-    setTicketMessage('');
-    setTicketCategory('general');
-    setTicketPriority('medium');
-    setShowNewTicket(false);
-    alert('Ticket created successfully! Our support team will respond soon.');
+      if (msgError) {
+        console.error('Error creating ticket message in Supabase:', msgError.message);
+      }
+      
+      fetchUserTickets();
+      setTicketSubject('');
+      setTicketMessage('');
+      setTicketCategory('general');
+      setTicketPriority('medium');
+      setShowNewTicket(false);
+      alert('Ticket created successfully! Our support team will respond soon.');
+    });
   };
 
   const handleSendReply = (ticketId: string) => {
     if (!replyMessage || !walletData?.id) return;
 
-    const updatedTickets = tickets.map(ticket => {
-      if (ticket.id === ticketId) {
-        const updatedTicket = {
-          ...ticket,
-          updated: new Date().toISOString(),
-          messages: [
-            ...ticket.messages,
-            {
-              sender: 'user',
-              senderName: walletData.username || 'User',
-              message: replyMessage,
-              timestamp: new Date().toISOString()
-            }
-          ]
-        };
-        return updatedTicket;
-      }
-      return ticket;
-    });
-
-    setTickets(updatedTickets);
-    dataService.setItem(`pluto_tickets_${walletData.id}`, JSON.stringify(updatedTickets));
-
-    // Update global admin tickets
-    const allTickets = JSON.parse(dataService.getItem('pluto_support_tickets') || '[]');
-    const globalIndex = allTickets.findIndex((t: any) => t.id === ticketId);
-    if (globalIndex !== -1) {
-      allTickets[globalIndex] = updatedTickets.find(t => t.id === ticketId);
-      dataService.setItem('pluto_support_tickets', JSON.stringify(allTickets));
-    }
-
+    const replyText = replyMessage.trim();
     setReplyMessage('');
+
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase
+        .from('support_ticket_messages')
+        .insert({
+          ticket_id: ticketId,
+          user_id: walletData.id,
+          message: replyText,
+          is_admin_reply: false
+        });
+
+      if (error) {
+        console.error('Error sending ticket reply:', error.message);
+        alert('Failed to send reply: ' + error.message);
+        return;
+      }
+
+      await supabase
+        .from('support_tickets')
+        .update({ status: 'open', updated_at: new Date().toISOString() })
+        .eq('id', ticketId);
+
+      fetchUserTickets();
+    });
   };
 
   const getStatusColor = (status: string) => {

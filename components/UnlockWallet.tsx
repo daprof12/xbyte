@@ -3,17 +3,21 @@ import { Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import Logo from './Logo';
+import { supabase } from '../utils/supabaseClient';
+import { fetchUserWalletFromDB } from '../utils/supabaseHelpers';
+import { storage } from '../utils/platform';
 
 interface UnlockWalletProps {
   walletData: any;
   onUnlock: () => void;
   onForgot: () => void;
   onCreateNew: () => void;
+  onImportExisting?: () => void;
   onBackToLanding: () => void;
   isImporting?: boolean;
 }
 
-export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateNew, onBackToLanding, isImporting = false }: UnlockWalletProps) {
+export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateNew, onImportExisting, onBackToLanding, isImporting = false }: UnlockWalletProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -28,24 +32,44 @@ export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateN
     setIsLoading(true);
     setError('');
 
-    // Simulate password verification
-    setTimeout(() => {
-      // In a real app, this would verify the password against the encrypted wallet
-      // For demo purposes, we check against the stored password
-      const storedPassword = walletData.password;
-      
-      // Check if password matches (either plain or base64 encoded)
+    try {
+      // 1. Try Supabase Auth first
+      if (walletData?.email) {
+        try {
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: walletData.email,
+            password: password
+          });
+
+          if (!authError && authData?.user) {
+            // Success! Fetch fresh data from DB and save to local storage cache
+            const freshWalletData = await fetchUserWalletFromDB(authData.user.id);
+            await storage.set('xbyte_wallet', freshWalletData);
+            onUnlock();
+            return;
+          }
+        } catch (authErr) {
+          console.warn('Supabase Auth failed, checking local fallback:', authErr);
+        }
+      }
+
+      // 2. Local fallback check
+      const storedPassword = walletData?.password;
       if (storedPassword && (password === storedPassword || password === atob(storedPassword))) {
         onUnlock();
       } else if (!storedPassword && password.length >= 8) {
-        // Fallback for legacy wallets without password field
+        // Legacy wallet without stored password
         onUnlock();
       } else {
         setError('Incorrect password. Please try again.');
         setPassword('');
       }
+    } catch (err: any) {
+      setError('Authentication failed. Please try again.');
+      setPassword('');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -55,11 +79,11 @@ export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateN
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-purple-500 rounded-full filter blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-0 left-0 w-96 h-96 bg-gray-800 rounded-full filter blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-gray-700 rounded-full filter blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md">
@@ -96,7 +120,7 @@ export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateN
                 }}
                 onKeyPress={handleKeyPress}
                 placeholder="Insert your password"
-                className="w-full bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500 pr-12 h-14 rounded-2xl focus:border-purple-500 focus:ring-purple-500"
+                className="w-full bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500 pr-12 h-14 rounded-2xl focus:border-gray-500 focus:ring-gray-500"
                 autoFocus
               />
               <button
@@ -120,7 +144,7 @@ export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateN
           <Button
             onClick={handleUnlock}
             disabled={isLoading || !password}
-            className="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl text-lg disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            className="w-full h-14 bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-white rounded-2xl text-lg disabled:opacity-50 disabled:cursor-not-allowed mb-4"
           >
             {isLoading ? 'Unlocking...' : 'Unlock wallet'}
           </Button>
@@ -136,14 +160,14 @@ export default function UnlockWallet({ walletData, onUnlock, onForgot, onCreateN
             <div className="text-gray-400 text-sm">
               <button
                 onClick={onCreateNew}
-                className="text-white hover:text-purple-400 transition-colors"
+                className="text-white hover:text-gray-300 transition-colors"
               >
                 Create new wallet
               </button>
               {' or '}
               <button
-                onClick={onCreateNew}
-                className="text-white hover:text-purple-400 transition-colors"
+                onClick={onImportExisting || onCreateNew}
+                className="text-white hover:text-gray-300 transition-colors"
               >
                 Import an existing one
               </button>

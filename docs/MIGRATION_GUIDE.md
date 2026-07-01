@@ -1,4 +1,4 @@
-# 🚀 Pluto Wallet - Data Migration Guide
+# 🚀 Xbyte Wallet - Data Migration Guide
 
 This guide explains how to migrate your local wallet data to Supabase for cloud sync and cross-platform access.
 
@@ -61,7 +61,7 @@ The migration script will sync the following data to Supabase:
 
 ### Step 1: Access Settings
 
-1. Open your Pluto Wallet
+1. Open your Xbyte Wallet
 2. Unlock your wallet with PIN or password
 3. Click on **Settings** icon in the bottom navigation
 4. Click on the **Sync** tab (database icon)
@@ -87,7 +87,7 @@ After migration completes, check:
 - ✅ Migration success message appears
 - ✅ Summary shows correct counts (wallets, transactions, etc.)
 - ✅ No errors are displayed
-- ✅ `pluto_migrated_to_supabase` flag is set in localStorage
+- ✅ `xbyte_migrated_to_supabase` flag is set in localStorage
 
 ### Step 5: (Optional) Clear Local Storage
 
@@ -127,7 +127,7 @@ After successful migration:
 ## 🔄 What Happens During Migration?
 
 ### Phase 1: Wallet Data (10%)
-1. Reads `pluto_wallet` from localStorage
+1. Reads `xbyte_wallet` from localStorage
 2. Creates or updates wallet in Supabase
 3. Migrates wallet balances
 4. Migrates wallet addresses
@@ -342,4 +342,4 @@ If you encounter issues:
 
 **Last Updated**: December 2024  
 **Version**: 1.0.0  
-**Pluto Wallet Team**
+**Xbyte Wallet Team**

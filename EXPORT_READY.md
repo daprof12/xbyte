@@ -1,8 +1,8 @@
-# 🎉 PLUTO WALLET - EXPORT READY!
+# 🎉 XBYTE WALLET - EXPORT READY!
 
 ## ✅ Your Complete Package is Ready
 
-**Package Name:** Pluto Multi-Chain Wallet  
+**Package Name:** Xbyte Multi-Chain Wallet  
 **Version:** 1.0.0  
 **Export Date:** December 3, 2025  
 **Status:** ✅ **PRODUCTION READY**
@@ -37,8 +37,8 @@
 ### **Step 1: Extract** (1 minute)
 ```bash
 # Create folder
-mkdir pluto-wallet
-cd pluto-wallet
+mkdir xbyte-wallet
+cd xbyte-wallet
 
 # Extract all 105+ files here
 ```
@@ -520,7 +520,7 @@ After completing this export:
 
 ## 🚀 Ready to Launch!
 
-Your **Pluto Multi-Chain Wallet** is:
+Your **Xbyte Multi-Chain Wallet** is:
 
 - ✅ **Complete** - All features implemented
 - ✅ **Tested** - Working on all platforms

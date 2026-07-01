@@ -1,5 +1,5 @@
 -- ============================================================================
--- PLUTO MULTI-CHAIN WALLET - DROP ALL TABLES SCRIPT
+-- XBYTE MULTI-CHAIN WALLET - DROP ALL TABLES SCRIPT
 -- ============================================================================
 -- This script drops all existing Supabase tables and functions
 -- WARNING: This will permanently delete all data!
@@ -76,4 +76,4 @@ DROP POLICY IF EXISTS "Admins can view all wallets" ON public.wallets CASCADE;
 DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions CASCADE;
 DROP POLICY IF EXISTS "Admins can view all transactions" ON public.transactions CASCADE;
 
-COMMENT ON SCHEMA public IS 'All Pluto Wallet tables dropped successfully';
+COMMENT ON SCHEMA public IS 'All Xbyte Wallet tables dropped successfully';

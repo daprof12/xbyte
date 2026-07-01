@@ -1,8 +1,8 @@
-# Pluto Multi-Chain Wallet - PWA Installation Guide
+# Xbyte Multi-Chain Wallet - PWA Installation Guide
 
 ## Overview
 
-The Pluto Multi-Chain Wallet is a Progressive Web App (PWA) that can be installed on any device (mobile, tablet, or desktop) and works like a native app. This guide explains how the PWA installation system works.
+The Xbyte Multi-Chain Wallet is a Progressive Web App (PWA) that can be installed on any device (mobile, tablet, or desktop) and works like a native app. This guide explains how the PWA installation system works.
 
 ---
 
@@ -15,8 +15,8 @@ The manifest file defines how the app appears when installed:
 
 ```json
 {
-  "name": "Pluto Multi-Chain Wallet",
-  "short_name": "Pluto Wallet",
+  "name": "Xbyte Multi-Chain Wallet",
+  "short_name": "Xbyte Wallet",
   "display": "standalone",
   "start_url": "/",
   "theme_color": "#9333EA",
@@ -119,7 +119,7 @@ setIsIOS(iOS);
 ### 3. **User Experience Timeline**
 
 ```
-User visits Pluto Wallet
+User visits Xbyte Wallet
          ↓
 Service Worker registers (background)
          ↓
@@ -375,7 +375,7 @@ const handleDismiss = () => {
 
 ## Summary
 
-The Pluto Wallet PWA installation system provides:
+The Xbyte Wallet PWA installation system provides:
 
 1. **Automatic detection** of installation capability
 2. **Platform-specific UX** (native prompt for Android/Chrome, instructions for iOS)

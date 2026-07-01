@@ -79,7 +79,7 @@ npm run dev
 ## 📂 Package Contents
 
 ```
-pluto-wallet/
+xbyte-wallet/
 │
 ├── 📄 START_HERE.md ⭐ START HERE!
 ├── 📄 README.md
@@ -134,7 +134,7 @@ pluto-wallet/
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  PLUTO WALLET - COMPLETION STATUS               │
+│  XBYTE WALLET - COMPLETION STATUS               │
 ├─────────────────────────────────────────────────┤
 │                                                 │
 │  Infrastructure      ████████████ 100%         │
@@ -472,7 +472,7 @@ You now have everything needed to build and launch a **professional, cross-platf
 
 ---
 
-Made with ❤️ by the Pluto Wallet Team
+Made with ❤️ by the Xbyte Wallet Team
 
 **Good luck with your launch!** 🎊
 

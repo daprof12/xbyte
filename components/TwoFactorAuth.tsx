@@ -30,12 +30,12 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
   // Numeric keypad handler
   const handleKeypadPress = (digit: string, isConfirm = false) => {
     if (isConfirm) {
-      if (confirmPasscode.length < 6) {
+      if (confirmPasscode.length < 4) {
         setConfirmPasscode(confirmPasscode + digit);
         setError('');
       }
     } else {
-      if (passcode.length < 6) {
+      if (passcode.length < 4) {
         setPasscode(passcode + digit);
         setError('');
       }
@@ -73,8 +73,8 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
       return;
     }
 
-    if (passcode.length !== 6) {
-      setError('Passcode must be 6 digits');
+    if (passcode.length !== 4) {
+      setError('Passcode must be 4 digits');
       return;
     }
 
@@ -94,8 +94,8 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
       return;
     }
 
-    if (passcode.length !== 6) {
-      setError('Passcode must be 6 digits');
+    if (passcode.length !== 4) {
+      setError('Passcode must be 4 digits');
       return;
     }
 
@@ -188,7 +188,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
   if (isSetup && !is2FASetup) {
     if (setupStep === 'choose') {
       return (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full">
             <div className="flex items-center justify-between mb-4">
               <button onClick={onBack} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -205,7 +205,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             </div>
 
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl text-gray-900 dark:text-white mb-2">Setup Two-Factor Authentication</h2>
@@ -217,7 +217,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             <div className="space-y-4">
               <button
                 onClick={() => setSetupStep('setup-biometric')}
-                className="w-full p-6 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-xl transition-all text-left group"
+                className="w-full p-6 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-xl transition-all text-left group"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -240,7 +240,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
                     <Lock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-gray-900 dark:text-white mb-1">6-Digit Passcode</h3>
+                    <h3 className="text-gray-900 dark:text-white mb-1">4-Digit Passcode</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Use a numeric passcode</p>
                   </div>
                   <div className="text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">→</div>
@@ -254,19 +254,19 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
 
     if (setupStep === 'setup-passcode') {
       return (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-screen overflow-y-auto">
             <button onClick={() => setSetupStep('choose')} className="mb-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
 
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl text-gray-900 dark:text-white mb-2">Create Your Passcode</h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Enter a 6-digit passcode to secure your wallet
+                Enter a 4-digit passcode to secure your wallet
               </p>
             </div>
 
@@ -275,7 +275,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               <div>
                 <label className="block text-sm text-gray-700 dark:text-gray-300 mb-3 text-center">Enter Passcode</label>
                 <div className="flex justify-center gap-2 sm:gap-3 mb-4">
-                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                  {[0, 1, 2, 3].map((index) => (
                     <div
                       key={index}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-200 dark:border-gray-600 transition-all"
@@ -301,14 +301,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               </div>
 
               {/* Numeric Keypad */}
-              <div className="space-y-2 sm:space-y-3">
+              <div className="space-y-2 sm:space-y-3 max-w-[240px] mx-auto">
                 {/* Numbers 1-9 in 3x3 grid */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
                       onClick={() => handleKeypadPress(num.toString())}
-                      disabled={passcode.length >= 6}
+                      disabled={passcode.length >= 4}
                       className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                     >
                       {num}
@@ -328,7 +328,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
                   </button>
                   <button
                     onClick={() => handleKeypadPress('0')}
-                    disabled={passcode.length >= 6}
+                    disabled={passcode.length >= 4}
                     className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                   >
                     0
@@ -351,14 +351,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               <Button
                 size="lg"
                 onClick={() => {
-                  if (passcode.length === 6) {
+                  if (passcode.length === 4) {
                     setSetupStep('confirm-passcode');
                   } else {
-                    setError('Please enter a 6-digit passcode');
+                    setError('Please enter a 4-digit passcode');
                   }
                 }}
-                disabled={passcode.length !== 6}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                disabled={passcode.length !== 4}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
               >
                 Continue
               </Button>
@@ -370,7 +370,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
 
     if (setupStep === 'confirm-passcode') {
       return (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-screen overflow-y-auto">
             <button onClick={() => {
               setSetupStep('setup-passcode');
@@ -381,7 +381,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             </button>
 
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl text-gray-900 dark:text-white mb-2">Confirm Your Passcode</h2>
@@ -395,7 +395,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               <div>
                 <label className="block text-sm text-gray-700 dark:text-gray-300 mb-3 text-center">Confirm Passcode</label>
                 <div className="flex justify-center gap-2 sm:gap-3 mb-4">
-                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                  {[0, 1, 2, 3].map((index) => (
                     <div
                       key={index}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-200 dark:border-gray-600 transition-all"
@@ -421,14 +421,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               </div>
 
               {/* Numeric Keypad */}
-              <div className="space-y-2 sm:space-y-3">
+              <div className="space-y-2 sm:space-y-3 max-w-[240px] mx-auto">
                 {/* Numbers 1-9 in 3x3 grid */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
                       onClick={() => handleKeypadPress(num.toString(), true)}
-                      disabled={confirmPasscode.length >= 6}
+                      disabled={confirmPasscode.length >= 4}
                       className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                     >
                       {num}
@@ -447,7 +447,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
                   </button>
                   <button
                     onClick={() => handleKeypadPress('0', true)}
-                    disabled={confirmPasscode.length >= 6}
+                    disabled={confirmPasscode.length >= 4}
                     className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                   >
                     0
@@ -470,8 +470,8 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               <Button
                 size="lg"
                 onClick={handlePasscodeSetup}
-                disabled={confirmPasscode.length !== 6}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                disabled={confirmPasscode.length !== 4}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
               >
                 Setup Passcode
               </Button>
@@ -483,14 +483,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
 
     if (setupStep === 'setup-biometric') {
       return (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full">
             <button onClick={() => setSetupStep('choose')} className="mb-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
 
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Fingerprint className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl text-gray-900 dark:text-white mb-2">Setup Biometric</h2>
@@ -503,7 +503,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
               <button
                 onClick={handleBiometricSetup}
                 disabled={biometricProcessing}
-                className="w-full p-12 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-2xl transition-all disabled:opacity-50"
+                className="w-full p-12 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-2xl transition-all disabled:opacity-50"
               >
                 <div className="relative">
                   <Fingerprint className={`w-24 h-24 text-white mx-auto ${biometricProcessing ? 'animate-pulse' : ''}`} />
@@ -533,14 +533,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
 
   // Authentication flow for existing users
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 max-w-md w-full max-h-screen overflow-y-auto">
         <button onClick={onBack} className="mb-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         </button>
 
         <div className="text-center mb-6 sm:mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
             {method === 'biometric' ? (
               <Fingerprint className="w-8 h-8 text-white" />
             ) : (
@@ -549,7 +549,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
           </div>
           <h2 className="text-2xl text-gray-900 dark:text-white mb-2">Two-Factor Authentication</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            {method === 'biometric' ? 'Use your biometric to continue' : 'Enter your 6-digit passcode'}
+            {method === 'biometric' ? 'Use your biometric to continue' : 'Enter your 4-digit passcode'}
           </p>
         </div>
 
@@ -558,7 +558,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             {/* Passcode Display */}
             <div>
               <div className="flex justify-center gap-2 sm:gap-3 mb-4">
-                {[0, 1, 2, 3, 4, 5].map((index) => (
+                {[0, 1, 2, 3].map((index) => (
                   <div
                     key={index}
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-200 dark:border-gray-600 transition-all"
@@ -584,14 +584,14 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             </div>
 
             {/* Numeric Keypad */}
-            <div className="space-y-2 sm:space-y-3">
+            <div className="space-y-2 sm:space-y-3 max-w-[240px] mx-auto">
               {/* Numbers 1-9 in 3x3 grid */}
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                   <button
                     key={num}
                     onClick={() => handleKeypadPress(num.toString())}
-                    disabled={passcode.length >= 6}
+                    disabled={passcode.length >= 4}
                     className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                   >
                     {num}
@@ -609,7 +609,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
                       setError('');
                       setTimeout(() => handleBiometricAuth(), 500);
                     }}
-                    className="aspect-square rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 active:scale-95 transition-all flex items-center justify-center"
+                    className="aspect-square rounded-xl bg-gray-800 border border-gray-700 hover:bg-gray-700 active:scale-95 transition-all flex items-center justify-center"
                     title="Switch to Biometric"
                   >
                     <Fingerprint className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
@@ -625,7 +625,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
                 )}
                 <button
                   onClick={() => handleKeypadPress('0')}
-                  disabled={passcode.length >= 6}
+                  disabled={passcode.length >= 4}
                   className="aspect-square rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl text-gray-900 dark:text-white disabled:opacity-50"
                 >
                   0
@@ -648,8 +648,8 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             <Button
               size="lg"
               onClick={handlePasscodeAuth}
-              disabled={passcode.length !== 6}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              disabled={passcode.length !== 4}
+              className="w-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-700"
             >
               Verify Passcode
             </Button>
@@ -659,7 +659,7 @@ export default function TwoFactorAuth({ walletData, onSuccess, onBack, onSkip, o
             <button
               onClick={handleBiometricAuth}
               disabled={biometricProcessing}
-              className="w-full p-12 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-2xl transition-all disabled:opacity-50"
+              className="w-full p-12 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-2xl transition-all disabled:opacity-50"
             >
               <div className="relative">
                 <Fingerprint className={`w-24 h-24 text-white mx-auto ${biometricProcessing ? 'animate-pulse' : ''}`} />

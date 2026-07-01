@@ -4,7 +4,7 @@
 
 ```bash
 # 1️⃣ EXTRACT FILES
-mkdir pluto-wallet && cd pluto-wallet
+mkdir xbyte-wallet && cd xbyte-wallet
 # (Copy all 105+ files here)
 
 # 2️⃣ INSTALL
@@ -52,7 +52,7 @@ npx cap open android     # Open Android Studio
 
 Your folder structure:
 ```
-pluto-wallet/
+xbyte-wallet/
 ├── package.json         # Dependencies
 ├── App.tsx             # Main app
 ├── components/         # All components
@@ -73,7 +73,7 @@ pluto-wallet/
 - [ ] Open http://localhost:5173
 - [ ] Test Create Wallet
 - [ ] Test Import Wallet
-- [ ] Test Admin Login (admin@pluto.io / Admin@123)
+- [ ] Test Admin Login (admin@xbyte.io / Admin@123)
 - [ ] Read `/START_HERE.md`
 
 ---

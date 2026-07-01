@@ -2,7 +2,7 @@
 
 ## 🎉 What's Been Implemented
 
-Your Pluto Multi-Chain Wallet now has a **complete Supabase migration system** that allows users to seamlessly migrate their local wallet data to the cloud!
+Your Xbyte Multi-Chain Wallet now has a **complete Supabase migration system** that allows users to seamlessly migrate their local wallet data to the cloud!
 
 ---
 
@@ -85,7 +85,7 @@ Your Pluto Multi-Chain Wallet now has a **complete Supabase migration system** t
 ### For Users:
 
 1. **Access Migration**
-   - Open Pluto Wallet
+   - Open Xbyte Wallet
    - Go to Settings (gear icon)
    - Click "Sync" tab (database icon)
 

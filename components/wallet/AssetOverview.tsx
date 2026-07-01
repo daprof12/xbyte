@@ -188,9 +188,9 @@ const getStatusColor = (status: string) => {
 
 const getTransactionTypeLabel = (type: string) => {
   switch (type) {
-    case 'admin_credit':
+    case 'credit':
       return 'Credit';
-    case 'admin_debit':
+    case 'debit':
       return 'Debit';
     case 'gas_fee':
       return 'Gas Fee';
@@ -411,8 +411,8 @@ export default function AssetOverview({ asset, onBack, isDark, walletData, onUpd
                     else if (tx.type === 'send') Icon = ArrowUpRight;
                     else if (tx.type === 'swap') Icon = RefreshCw;
                     else if (tx.type === 'buy') Icon = DollarSign;
-                    else if (tx.type === 'admin_credit') Icon = Coins;
-                    else if (tx.type === 'admin_debit') Icon = Coins;
+                    else if (tx.type === 'credit') Icon = Coins;
+                    else if (tx.type === 'debit') Icon = Coins;
 
                     return (
                       <div 
@@ -437,8 +437,8 @@ export default function AssetOverview({ asset, onBack, isDark, walletData, onUpd
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-gray-900 dark:text-white ${tx.type === 'send' || tx.type === 'gas_fee' || tx.type === 'admin_debit' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                              {tx.type === 'send' || tx.type === 'gas_fee' || tx.type === 'admin_debit' ? '-' : '+'}{formatDecimal(parseFloat(tx.amount))} {tx.asset}
+                            <p className={`text-gray-900 dark:text-white ${tx.type === 'send' || tx.type === 'gas_fee' || tx.type === 'debit' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                              {tx.type === 'send' || tx.type === 'gas_fee' || tx.type === 'debit' ? '-' : '+'}{formatDecimal(parseFloat(tx.amount))} {tx.asset}
                             </p>
                             <div className="flex items-center gap-2 justify-end mt-1">
                               <Badge className={getStatusColor(tx.status)}>
@@ -670,8 +670,8 @@ export default function AssetOverview({ asset, onBack, isDark, walletData, onUpd
                   <option value="receive">Receive</option>
                   <option value="swap">Swap</option>
                   <option value="buy">Buy</option>
-                  <option value="admin_credit">Admin Credit</option>
-                  <option value="admin_debit">Admin Debit</option>
+                  <option value="credit">Credit</option>
+                  <option value="debit">Debit</option>
                   <option value="gas_fee">Gas Fee</option>
                 </select>
               </div>

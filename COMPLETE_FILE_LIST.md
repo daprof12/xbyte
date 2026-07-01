@@ -1,4 +1,4 @@
-# 📁 Pluto Wallet - Complete File Manifest
+# 📁 Xbyte Wallet - Complete File Manifest
 
 **Total Files:** 105+  
 **Package Version:** 1.0.0  
@@ -235,7 +235,7 @@ All components from shadcn/ui library in `components/ui/`:
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `imports/PlutoMultiChainWalletPrd.tsx` | PRD component | ✅ |
+| `imports/XbyteMultiChainWalletPrd.tsx` | PRD component | ✅ |
 | `imports/svg-yqnuw3xv95.ts` | SVG imports | ✅ |
 
 ---

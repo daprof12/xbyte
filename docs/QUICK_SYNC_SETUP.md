@@ -1,4 +1,4 @@
-# Quick Setup: Cross-Platform Sync for Pluto Wallet
+# Quick Setup: Cross-Platform Sync for Xbyte Wallet
 
 ## TL;DR - How It Works
 
@@ -31,7 +31,7 @@ implementation 'com.google.firebase:firebase-database:20.3.0'
 ### **Step 2: Firebase Console Setup**
 
 1. Go to https://console.firebase.google.com
-2. Create new project "pluto-wallet"
+2. Create new project "xbyte-wallet"
 3. Enable Realtime Database
 4. Set rules:
 
@@ -59,9 +59,9 @@ import { useEffect } from 'react';
 
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
-  authDomain: "pluto-wallet.firebaseapp.com",
-  databaseURL: "https://pluto-wallet.firebaseio.com",
-  projectId: "pluto-wallet"
+  authDomain: "xbyte-wallet.firebaseapp.com",
+  databaseURL: "https://xbyte-wallet.firebaseio.com",
+  projectId: "xbyte-wallet"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -77,12 +77,12 @@ export function useFirebaseSync(userId: string, onSync: (data: any) => void) {
     const unsubscribe = onValue(userRef, (snapshot) => {
       const cloudData = snapshot.val();
       if (cloudData) {
-        const localData = localStorage.getItem('pluto_wallet');
+        const localData = localStorage.getItem('xbyte_wallet');
         const local = localData ? JSON.parse(localData) : null;
 
         // Only update if cloud is newer
         if (!local || cloudData.lastModified > local.lastModified) {
-          localStorage.setItem('pluto_wallet', JSON.stringify(cloudData.data));
+          localStorage.setItem('xbyte_wallet', JSON.stringify(cloudData.data));
           onSync(cloudData.data);
           console.log('✅ Synced from Firebase');
         }
@@ -91,7 +91,7 @@ export function useFirebaseSync(userId: string, onSync: (data: any) => void) {
 
     // Sync local changes to Firebase every 5 seconds
     const syncInterval = setInterval(() => {
-      const localData = localStorage.getItem('pluto_wallet');
+      const localData = localStorage.getItem('xbyte_wallet');
       if (localData) {
         const wallet = JSON.parse(localData);
         set(userRef, {
@@ -185,7 +185,7 @@ class FirebaseSyncService {
                 // Save to UserDefaults
                 if let jsonData = try? JSONSerialization.data(withJSONObject: walletData),
                    let jsonString = String(data: jsonData, encoding: .utf8) {
-                    UserDefaults.standard.set(jsonString, forKey: "pluto_wallet")
+                    UserDefaults.standard.set(jsonString, forKey: "xbyte_wallet")
                     UserDefaults.standard.set(cloudModified, forKey: "lastModified")
                     
                     // Notify app
@@ -205,7 +205,7 @@ class FirebaseSyncService {
     }
     
     private func syncToFirebase() {
-        guard let walletJson = UserDefaults.standard.string(forKey: "pluto_wallet"),
+        guard let walletJson = UserDefaults.standard.string(forKey: "xbyte_wallet"),
               let walletData = try? JSONSerialization.jsonObject(with: walletJson.data(using: .utf8)!) else {
             return
         }
@@ -285,7 +285,7 @@ class FirebaseSyncService(
     private val database = FirebaseDatabase.getInstance()
     private val userRef = database.getReference("users/$userId/wallet")
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("pluto_wallet", Context.MODE_PRIVATE)
+        context.getSharedPreferences("xbyte_wallet", Context.MODE_PRIVATE)
     
     private var syncJob: Job? = null
     
@@ -310,7 +310,7 @@ class FirebaseSyncService(
                     val walletJson = JSONObject(walletData).toString()
                     
                     prefs.edit()
-                        .putString("pluto_wallet", walletJson)
+                        .putString("xbyte_wallet", walletJson)
                         .putLong("lastModified", cloudModified)
                         .apply()
                     
@@ -336,7 +336,7 @@ class FirebaseSyncService(
     }
     
     private fun syncToFirebase() {
-        val walletJson = prefs.getString("pluto_wallet", null) ?: return
+        val walletJson = prefs.getString("xbyte_wallet", null) ?: return
         val walletData = JSONObject(walletJson).toMap()
         
         val timestamp = System.currentTimeMillis()
@@ -396,7 +396,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         
         // Get user ID from SharedPreferences
-        val prefs = getSharedPreferences("pluto_wallet", MODE_PRIVATE)
+        val prefs = getSharedPreferences("xbyte_wallet", MODE_PRIVATE)
         val userId = prefs.getString("userId", "guest") ?: "guest"
         
         // Start sync service
@@ -542,15 +542,15 @@ app.listen(3000, () => {
 // Should show: data, lastModified, deviceId
 
 // Check browser console
-console.log('Local:', localStorage.getItem('pluto_wallet'));
+console.log('Local:', localStorage.getItem('xbyte_wallet'));
 console.log('Device ID:', localStorage.getItem('device_id'));
 
 // Check iOS
-print(UserDefaults.standard.string(forKey: "pluto_wallet"))
+print(UserDefaults.standard.string(forKey: "xbyte_wallet"))
 print(UserDefaults.standard.string(forKey: "device_id"))
 
 // Check Android
-Log.d("Sync", prefs.getString("pluto_wallet", "null"))
+Log.d("Sync", prefs.getString("xbyte_wallet", "null"))
 Log.d("Sync", prefs.getString("device_id", "null"))
 ```
 
@@ -569,7 +569,7 @@ const syncInterval = setInterval(() => {
 // Implement "last write wins" strategy
 if (cloudData.lastModified > localData.lastModified) {
   // Use cloud data
-  localStorage.setItem('pluto_wallet', JSON.stringify(cloudData.data));
+  localStorage.setItem('xbyte_wallet', JSON.stringify(cloudData.data));
 } else {
   // Keep local data, push to cloud
   syncToCloud();

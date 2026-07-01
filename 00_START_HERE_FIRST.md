@@ -1,8 +1,8 @@
-# 🎉 WELCOME TO PLUTO WALLET!
+# 🎉 WELCOME TO XBYTE WALLET!
 
 ## ✨ Your Complete Export Package is Ready
 
-**Package:** Pluto Multi-Chain Wallet  
+**Package:** Xbyte Multi-Chain Wallet  
 **Version:** 1.0.0  
 **Date:** December 3, 2025  
 **Status:** ✅ **PRODUCTION READY**
@@ -26,7 +26,7 @@ You have a **complete cryptocurrency wallet** ready to deploy to:
 
 ```bash
 # 1. Extract files
-mkdir pluto-wallet && cd pluto-wallet
+mkdir xbyte-wallet && cd xbyte-wallet
 
 # 2. Install
 npm install
@@ -352,7 +352,7 @@ You now have a **production-ready cryptocurrency wallet** that can be deployed t
 
 ---
 
-**Welcome to Pluto Wallet! Let's build something amazing! 🌟**
+**Welcome to Xbyte Wallet! Let's build something amazing! 🌟**
 
 ---
 

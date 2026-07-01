@@ -5,10 +5,10 @@ import imgSolSolPortal from "../assets/sol.png";
 import imgWbnbWrappedBnb from "../assets/bnb.png";
 import imgUsDtTetherToken from "../assets/usdt.png";
 import imgSend2Go9UiMl1Mp4 from "../assets/send_2GO9uiMl-1.png";
-import imgAutosignUJxVbonYMp4 from "../assets/pluto 630x630.png";
-import imgMultipleAccounts932ZuZ9F1Mp4 from "../assets/pluto 630x630.png";
-import imgDappsConnect1Mp4 from "../assets/pluto 630x630.png";
-import imgImagem20250611165751009Png from "../assets/pluto 630x630.png";
+import imgAutosignUJxVbonYMp4 from "../assets/xbyte 630x630.png";
+import imgMultipleAccounts932ZuZ9F1Mp4 from "../assets/xbyte 630x630.png";
+import imgDappsConnect1Mp4 from "../assets/xbyte 630x630.png";
+import imgImagem20250611165751009Png from "../assets/xbyte 630x630.png";
 import imgImagem20250611162536799Webp from "../assets/Blur.png";
 import imgImagem202506111625557411Webp from "../assets/Blur.png";
 import imgBackground from "../assets/Background.png";
@@ -41,7 +41,7 @@ function Heading() {
     <div className="h-[27.998px] relative shrink-0 w-[43.347px]" data-name="Heading 1">
       <div className="bg-clip-padding border-0 border-[transparent] border-solid box-border h-[27.998px] relative w-[43.347px]">
         <p className="absolute bg-clip-text font-['Arial:Regular',sans-serif] leading-[28px] left-0 not-italic text-[20px] text-[rgba(0,0,0,0)] text-nowrap top-[-2.32px] tracking-[-0.5px] whitespace-pre" style={{ WebkitTextFillColor: "transparent", backgroundImage: "linear-gradient(90deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%), linear-gradient(90deg, rgb(152, 16, 250) 0%, rgb(21, 93, 252) 100%)" }}>
-          Pluto
+          Xbyte
         </p>
       </div>
     </div>
@@ -827,7 +827,7 @@ function Section2() {
 function Paragraph4() {
   return (
     <div className="h-[23.994px] relative shrink-0 w-full" data-name="Paragraph">
-      <p className="absolute font-['Arial:Regular',sans-serif] leading-[24px] left-[623.57px] not-italic text-[#99a1af] text-[16px] text-center text-nowrap top-[-1.64px] translate-x-[-50%] whitespace-pre">© 2025 Pluto Wallet. All rights reserved.</p>
+      <p className="absolute font-['Arial:Regular',sans-serif] leading-[24px] left-[623.57px] not-italic text-[#99a1af] text-[16px] text-center text-nowrap top-[-1.64px] translate-x-[-50%] whitespace-pre">© 2025 Xbyte Wallet. All rights reserved.</p>
     </div>
   );
 }
@@ -2031,7 +2031,7 @@ function Heading14() {
   return (
     <div className="content-stretch flex flex-col items-center relative shrink-0 w-full" data-name="Heading 2">
       <div className="flex flex-col font-['Arial:Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[32px] text-center text-white tracking-[-1.28px] w-full">
-        <p className="leading-[36.8px]">Join millions of users managing their crypto with Pluto Wallet. Safe Anywhere: Your Security, Our Priority</p>
+        <p className="leading-[36.8px]">Join millions of users managing their crypto with Xbyte Wallet. Safe Anywhere: Your Security, Our Priority</p>
       </div>
     </div>
   );
@@ -2115,9 +2115,9 @@ function Container113() {
   );
 }
 
-export default function PlutoMultiChainWalletPrd() {
+export default function XbyteMultiChainWalletPrd() {
   return (
-    <div className="bg-neutral-950 relative size-full" data-name="Pluto Multi-Chain Wallet PRD">
+    <div className="bg-neutral-950 relative size-full" data-name="Xbyte Multi-Chain Wallet PRD">
       <LandingPage />
       <Background4 />
       <Container113 />

@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD)  
-**Product Name:** Pluto Multi-Chain Wallet (Web Extension + PWA)  
+**Product Name:** Xbyte Multi-Chain Wallet (Web Extension + PWA)  
 **Version:** 1.0  
 **Date:** November 27, 2025  
 **Target Launch:** Q2 2026  
 
 ### 1. Product Overview & Vision  
-Pluto Multi-Chain Wallet is a **non-custodial** browser extension + Progressive Web App (PWA) that starts as a beautiful, fast, multi-chain cryptocurrency wallet supporting **BTC, ETH, SOL, BNB Smart Chain, TRON (for USDT)** by default, with ability to add any EVM or non-EVM chain later.
+Xbyte Multi-Chain Wallet is a **non-custodial** browser extension + Progressive Web App (PWA) that starts as a beautiful, fast, multi-chain cryptocurrency wallet supporting **BTC, ETH, SOL, BNB Smart Chain, TRON (for USDT)** by default, with ability to add any EVM or non-EVM chain later.
 
 The product will have **two completely separate sides**:
 

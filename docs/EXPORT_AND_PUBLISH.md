@@ -33,8 +33,8 @@ Since you have access to all files, you'll need to:
 
 1. **Create a new folder on your computer:**
    ```bash
-   mkdir pluto-wallet
-   cd pluto-wallet
+   mkdir xbyte-wallet
+   cd xbyte-wallet
    ```
 
 2. **Initialize a new React project:**
@@ -149,8 +149,8 @@ npm install @capacitor/preferences
 
 # 2. Initialize Capacitor
 npx cap init
-# App name: Pluto Multi-Chain Wallet
-# App ID: com.plutowallet.app (use your own)
+# App name: Xbyte Multi-Chain Wallet
+# App ID: com.xbytewallet.app (use your own)
 # Web directory: dist
 
 # 3. Add platforms
@@ -261,7 +261,7 @@ npx cap open ios
 
 # 5. Configure app
 #    - Select project → General
-#    - Bundle Identifier: com.plutowallet.app
+#    - Bundle Identifier: com.xbytewallet.app
 #    - Version: 1.0.0
 #    - Team: Your team
 
@@ -308,9 +308,9 @@ npx cap open android
 # 5. Generate signing key (first time only)
 # Build → Generate Signed Bundle/APK
 # Create new keystore
-#   - Key store path: ~/pluto-wallet.keystore
+#   - Key store path: ~/xbyte-wallet.keystore
 #   - Password: [create strong password]
-#   - Alias: plutowallet
+#   - Alias: xbytewallet
 #   - Validity: 25 years
 # SAVE THIS KEYSTORE - You need it for all future updates!
 
@@ -353,10 +353,10 @@ npx cap open android
    - Click "My Apps" → "+"
    - Create New App
    - Platform: iOS
-   - Name: Pluto Multi-Chain Wallet
+   - Name: Xbyte Multi-Chain Wallet
    - Primary Language: English
-   - Bundle ID: com.plutowallet.app (must match Xcode)
-   - SKU: plutowallet001
+   - Bundle ID: com.xbytewallet.app (must match Xcode)
+   - SKU: xbytewallet001
 
 2. **Add App Information:**
    - Subtitle: Multi-Chain Crypto Wallet
@@ -370,7 +370,7 @@ npx cap open android
 
 4. **Add Description:**
    ```
-   Pluto Wallet is a beautiful, secure multi-chain cryptocurrency wallet 
+   Xbyte Wallet is a beautiful, secure multi-chain cryptocurrency wallet 
    that supports Bitcoin (BTC), Ethereum (ETH), Solana (SOL), BNB Smart 
    Chain, and TRON.
    
@@ -418,7 +418,7 @@ npx cap open android
 
 2. **Create New App:**
    - Click "Create app"
-   - App name: Pluto Multi-Chain Wallet
+   - App name: Xbyte Multi-Chain Wallet
    - Default language: English
    - App or Game: App
    - Free or Paid: Free
@@ -516,12 +516,12 @@ You already have these in `/public/icons/`:
 **Template:**
 
 ```markdown
-# Privacy Policy for Pluto Multi-Chain Wallet
+# Privacy Policy for Xbyte Multi-Chain Wallet
 
 Last updated: December 3, 2025
 
 ## Introduction
-Pluto Multi-Chain Wallet ("we", "our", or "us") operates as a non-custodial 
+Xbyte Multi-Chain Wallet ("we", "our", or "us") operates as a non-custodial 
 cryptocurrency wallet. We are committed to protecting your privacy.
 
 ## Data We Collect
@@ -568,14 +568,14 @@ Our app is not intended for users under 18 years of age.
 
 ## Contact Us
 If you have questions about this Privacy Policy, contact us at:
-support@plutowallet.com
+support@xbytewallet.com
 
 ## Changes to This Policy
 We may update this policy from time to time. We will notify you of any changes.
 ```
 
 **Host this at:**
-- https://plutowallet.com/privacy
+- https://xbytewallet.com/privacy
 - Or use GitHub Pages (free)
 
 ---
@@ -583,7 +583,7 @@ We may update this policy from time to time. We will notify you of any changes.
 ### **4. Support Resources**
 
 **Support Email:**
-- Create: support@plutowallet.com
+- Create: support@xbytewallet.com
 - Or use your personal email
 
 **Support Website:**

@@ -27,7 +27,7 @@ export default function PWAInstallModal({ isOpen, onClose, isIOS }: PWAInstallMo
             <Download className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl text-gray-900 dark:text-white mb-2">
-            Install Pluto Wallet
+            Install Xbyte Wallet
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
             Add to your home screen for quick access
@@ -92,7 +92,7 @@ export default function PWAInstallModal({ isOpen, onClose, isIOS }: PWAInstallMo
                   <span className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs">
                     2
                   </span>
-                  <span>Select "Install Pluto Wallet" or "Add to Home Screen"</span>
+                  <span>Select "Install Xbyte Wallet" or "Add to Home Screen"</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs">

@@ -1,6 +1,6 @@
-# 🚀 Pluto Wallet - Supabase Setup Guide
+# 🚀 Xbyte Wallet - Supabase Setup Guide
 
-This guide will walk you through setting up Supabase for your Pluto Multi-Chain Wallet in just a few minutes.
+This guide will walk you through setting up Supabase for your Xbyte Multi-Chain Wallet in just a few minutes.
 
 ---
 
@@ -20,7 +20,7 @@ This guide will walk you through setting up Supabase for your Pluto Multi-Chain 
 2. **Click** "Start your project" or "New Project"
 3. **Create organization** (if you don't have one)
 4. **Fill in project details:**
-   - Project name: `pluto-wallet` (or your preferred name)
+   - Project name: `xbyte-wallet` (or your preferred name)
    - Database Password: Create a strong password (save it!)
    - Region: Choose closest to your users
    - Pricing Plan: Free (or Pro if you need more)
@@ -77,7 +77,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 You should see success messages:
 ```
-✅ Pluto Wallet schema created successfully!
+✅ Xbyte Wallet schema created successfully!
 ✅ Total tables: 26
 ✅ Total functions: 5
 ✅ Cross-platform sync: Enabled
@@ -201,13 +201,13 @@ Add to your app initialization:
 // In App.tsx or main entry point
 useEffect(() => {
   const migrateIfNeeded = async () => {
-    const hasMigrated = localStorage.getItem('pluto_migrated_to_supabase');
+    const hasMigrated = localStorage.getItem('xbyte_migrated_to_supabase');
     
     if (!hasMigrated && walletData) {
       const result = await migrateAllDataToSupabase(userId);
       
       if (result.success) {
-        localStorage.setItem('pluto_migrated_to_supabase', 'true');
+        localStorage.setItem('xbyte_migrated_to_supabase', 'true');
         toast.success('Data synced to cloud!');
       }
     }
@@ -270,7 +270,7 @@ Now that Supabase is set up, you can:
 - [Realtime](https://supabase.com/docs/guides/realtime)
 - [Database Functions](https://supabase.com/docs/guides/database/functions)
 
-### Pluto Wallet Documentation
+### Xbyte Wallet Documentation
 - [Complete Schema](./complete_schema.sql)
 - [Migration Script](./migrate_localstorage_to_supabase.ts)
 - [Cross-Platform Sync Guide](../docs/CROSS_PLATFORM_SYNC_GUIDE.md)
@@ -335,7 +335,7 @@ Before going to production:
 
 ## 🎉 You're All Set!
 
-Your Pluto Wallet is now connected to Supabase with:
+Your Xbyte Wallet is now connected to Supabase with:
 - ✅ Cross-platform sync
 - ✅ Real-time updates
 - ✅ Secure data storage

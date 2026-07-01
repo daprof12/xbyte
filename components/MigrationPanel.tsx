@@ -22,12 +22,12 @@ export default function MigrationPanel({ userId, onMigrationComplete }: Migratio
   const [progress, setProgress] = useState(0);
 
   const checkLocalStorageData = () => {
-    const walletData = dataService.getItem('pluto_wallet');
-    const activities = dataService.getItem('pluto_user_activities');
-    const notifications = dataService.getItem(`pluto_notifications_${userId}`);
-    const tickets = dataService.getItem('pluto_support_tickets');
-    const fees = dataService.getItem('pluto_admin_fees');
-    const assets = dataService.getItem('pluto_asset_config');
+    const walletData = dataService.getItem('xbyte_wallet');
+    const activities = dataService.getItem('xbyte_user_activities');
+    const notifications = dataService.getItem(`xbyte_notifications_${userId}`);
+    const tickets = dataService.getItem('xbyte_support_tickets');
+    const fees = dataService.getItem('xbyte_admin_fees');
+    const assets = dataService.getItem('xbyte_asset_config');
 
     const hasData = !!(walletData || activities || notifications || tickets || fees || assets);
 
@@ -70,8 +70,8 @@ export default function MigrationPanel({ userId, onMigrationComplete }: Migratio
         });
 
         // Mark migration as complete in localStorage
-        dataService.setItem('pluto_migrated_to_supabase', 'true');
-        dataService.setItem('pluto_migration_date', new Date().toISOString());
+        dataService.setItem('xbyte_migrated_to_supabase', 'true');
+        dataService.setItem('xbyte_migration_date', new Date().toISOString());
 
         if (onMigrationComplete) {
           onMigrationComplete();
@@ -105,8 +105,8 @@ export default function MigrationPanel({ userId, onMigrationComplete }: Migratio
   };
 
   // Check if already migrated
-  const alreadyMigrated = dataService.getItem('pluto_migrated_to_supabase') === 'true';
-  const migrationDate = dataService.getItem('pluto_migration_date');
+  const alreadyMigrated = dataService.getItem('xbyte_migrated_to_supabase') === 'true';
+  const migrationDate = dataService.getItem('xbyte_migration_date');
 
   if (alreadyMigrated && !migrationComplete) {
     return (

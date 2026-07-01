@@ -6,21 +6,23 @@ import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { generateAllAddresses } from '../utils/addressGenerator';
 import { copyToClipboard } from '../utils/clipboard';
+import { supabase } from '../utils/supabaseClient';
+import { saveWalletDataToDB } from '../utils/supabaseHelpers';
 
 interface WalletOnboardingProps {
   onComplete: (walletData: any) => void;
   onBack: () => void;
   onImportAuth?: (existingWallet: any) => void;
+  initialMode?: 'create' | 'import';
 }
 
-export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: WalletOnboardingProps) {
-  const [step, setStep] = useState(1);
-  const [mode, setMode] = useState<'create' | 'import'>('create');
+export default function WalletOnboarding({ onComplete, onBack, onImportAuth, initialMode = 'create' }: WalletOnboardingProps) {
+  const [step, setStep] = useState(initialMode === 'import' ? 6 : 1);
+  const [mode, setMode] = useState<'create' | 'import'>(initialMode);
   const [mnemonic, setMnemonic] = useState<string[]>([]);
   const [importMnemonic, setImportMnemonic] = useState('');
   const [confirmWords, setConfirmWords] = useState<{ [key: number]: string }>({});
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,15 +30,14 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
   const [showMnemonic, setShowMnemonic] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [copiedMnemonic, setCopiedMnemonic] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   
   // Validation states
   const [emailError, setEmailError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [touched, setTouched] = useState({
     email: false,
-    phone: false,
     password: false,
     confirmPassword: false
   });
@@ -101,19 +102,7 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
     return '';
   };
 
-  const validatePhone = (value: string) => {
-    if (!value) {
-      return 'Phone number is required';
-    }
-    const cleanPhone = value.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      return 'Phone number must be at least 10 digits';
-    }
-    if (cleanPhone.length > 15) {
-      return 'Phone number is too long';
-    }
-    return '';
-  };
+
 
   const validatePassword = (value: string) => {
     if (!value) {
@@ -169,15 +158,6 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
     }
   };
 
-  const handlePhoneChange = (value: string) => {
-    // Allow only numbers, spaces, dashes, parentheses, and plus sign
-    const formatted = value.replace(/[^\d\s\-\(\)\+]/g, '');
-    setPhone(formatted);
-    if (touched.phone) {
-      setPhoneError(validatePhone(formatted));
-    }
-  };
-
   const handlePasswordChange = (value: string) => {
     setPassword(value);
     if (touched.password) {
@@ -199,45 +179,64 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
     // Mark all fields as touched
     setTouched({
       email: true,
-      phone: true,
       password: true,
       confirmPassword: true
     });
 
     // Validate all fields
     const emailErr = validateEmail(email);
-    const phoneErr = validatePhone(phone);
     const passwordErr = validatePassword(password);
     const confirmPasswordErr = validateConfirmPassword(confirmPassword);
 
     setEmailError(emailErr);
-    setPhoneError(phoneErr);
     setPasswordError(passwordErr);
     setConfirmPasswordError(confirmPasswordErr);
 
     // If any errors, don't proceed
-    if (emailErr || phoneErr || passwordErr || confirmPasswordErr) {
+    if (emailErr || passwordErr || confirmPasswordErr) {
       return;
     }
     
     setStep(5);
   };
 
-  const handleImportWallet = () => {
+  const handleImportWallet = async () => {
     const words = importMnemonic.trim().split(/\s+/);
     if (words.length !== 12) {
       alert('Please enter exactly 12 words');
       return;
     }
     
-    // Check if wallet with this mnemonic exists in localStorage
-    const existingWallet = dataService.getItem('pluto_wallet');
-    if (existingWallet) {
-      const walletData = JSON.parse(existingWallet);
-      const existingMnemonic = atob(walletData.mnemonic_encrypted);
-      const enteredMnemonic = words.join(' ');
-      
-      if (existingMnemonic === enteredMnemonic) {
+    const enteredMnemonic = words.join(' ');
+    
+    try {
+      // Check database for user with this seed phrase
+      const { data: userProfile, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('seed_phrase', enteredMnemonic)
+        .maybeSingle();
+
+      if (dbError) throw dbError;
+
+      if (userProfile) {
+        // Construct walletData from userProfile
+        const walletData = {
+          id: userProfile.id,
+          created_at: userProfile.created_at,
+          email: userProfile.email || '',
+          fullName: userProfile.full_name || userProfile.email.split('@')[0],
+          mnemonic_encrypted: btoa(enteredMnemonic),
+          password: btoa(userProfile.password_hash || ''), 
+          addresses: userProfile.wallet_address || {},
+          balances: userProfile.metadata?.balances || { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0.00' },
+          transactions: userProfile.metadata?.transactions || [],
+          twoFactorAuth: userProfile.metadata?.twoFactorAuth || { enabled: false },
+          kyc_status: userProfile.metadata?.kyc_status || 'pending',
+          blocked: userProfile.status === 'blocked',
+          last_login: userProfile.last_login_at || new Date().toISOString()
+        };
+
         // Wallet exists! Redirect to authentication
         if (onImportAuth) {
           onImportAuth(walletData);
@@ -246,67 +245,107 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
         }
         return;
       }
+    } catch (err: any) {
+      console.error('Error looking up mnemonic in DB:', err);
     }
     
-    // If no matching wallet found, show error
-    alert('No wallet found with this recovery phrase. Please check your phrase or create a new wallet.');
+    // If no matching wallet found, ask to register a new one
+    const confirmRegister = window.confirm(
+      'No existing wallet found in the database with this recovery phrase.\n\n' +
+      'Would you like to register a new account using this recovery phrase?'
+    );
+
+    if (confirmRegister) {
+      setMnemonic(words);
+      setStep(4); // Go to user info step
+    }
   };
 
-  const completeSetup = () => {
-    // Generate valid-format addresses for all chains
-    const walletData = {
-      id: `usr_${Date.now()}`,
-      created_at: new Date('2017-12-06').toISOString(),
-      email: email,
-      phone: phone,
-      fullName: email.split('@')[0], // Use email prefix as initial name
-      mnemonic_encrypted: btoa(mnemonic.join(' ')), // Mock encryption
-      password: btoa(password), // Store hashed password for authentication
-      passwordLastChanged: new Date().toISOString(),
-      addresses: generateAllAddresses(),
-      balances: {
-        BTC: '0',
-        ETH: '0',
-        SOL: '0',
-        BNB: '0',
-        USDT: '0.00'
-      },
-      transactions: [],
-      twoFactorAuth: {
-        enabled: false,
-        preferredMethod: null,
-        passcode: null,
-        biometricEnabled: false,
-        biometricData: null,
-        setupDate: null
-      },
-      failedLoginAttempts: 0,
-      accountLocked: false,
-      kyc_status: 'pending', // New users start with pending KYC
-      blocked: false,
-      last_login: new Date().toISOString()
-    };
-    
-    // Save user data to admin's user list
-    const existingUsers = JSON.parse(dataService.getItem('pluto_admin_users') || '[]');
-    const newUserForAdmin = {
-      id: walletData.id,
-      email: walletData.email,
-      phone: walletData.phone,
-      kyc_status: walletData.kyc_status,
-      created_at: walletData.created_at,
-      last_login: walletData.last_login,
-      blocked: walletData.blocked,
-      balances: walletData.balances,
-      addresses: walletData.addresses,
-      password: walletData.password,
-      passwordLastChanged: walletData.passwordLastChanged,
-      twoFactorAuth: walletData.twoFactorAuth
-    };
-    existingUsers.push(newUserForAdmin);
-    dataService.setItem('pluto_admin_users', JSON.stringify(existingUsers));
-    
-    onComplete(walletData);
+  const completeSetup = async () => {
+    setIsRegistering(true);
+    try {
+      // 1. Sign up the user in Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            full_name: email.split('@')[0]
+          }
+        }
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!authData.user) {
+        throw new Error('Sign up failed: no user returned from database.');
+      }
+
+      const userId = authData.user.id;
+
+      // 2. Generate valid-format addresses for all chains
+      const walletData = {
+        id: userId,
+        created_at: new Date().toISOString(),
+        email: email,
+        fullName: email.split('@')[0], // Use email prefix as initial name
+        mnemonic_encrypted: btoa(mnemonic.join(' ')), // Mock encryption
+        password: btoa(password), // Store hashed password for authentication
+        passwordLastChanged: new Date().toISOString(),
+        addresses: generateAllAddresses(),
+        balances: {
+          BTC: '0',
+          ETH: '0',
+          SOL: '0',
+          BNB: '0',
+          USDT: '0.00'
+        },
+        transactions: [],
+        twoFactorAuth: {
+          enabled: false,
+          preferredMethod: null,
+          passcode: null,
+          biometricEnabled: false,
+          biometricData: null,
+          setupDate: null
+        },
+        failedLoginAttempts: 0,
+        accountLocked: false,
+        kyc_status: 'pending', // New users start with pending KYC
+        blocked: false,
+        last_login: new Date().toISOString()
+      };
+      
+      // 3. Save directly to database using saveWalletDataToDB
+      await saveWalletDataToDB(walletData);
+
+      // Save user data to admin's user list
+      const existingUsers = JSON.parse(dataService.getItem('xbyte_admin_users') || '[]');
+      const newUserForAdmin = {
+        id: walletData.id,
+        email: walletData.email,
+        kyc_status: walletData.kyc_status,
+        created_at: walletData.created_at,
+        last_login: walletData.last_login,
+        blocked: walletData.blocked,
+        balances: walletData.balances,
+        addresses: walletData.addresses,
+        password: walletData.password,
+        passwordLastChanged: walletData.passwordLastChanged,
+        twoFactorAuth: walletData.twoFactorAuth
+      };
+      existingUsers.push(newUserForAdmin);
+      dataService.setItem('xbyte_admin_users', JSON.stringify(existingUsers));
+      
+      onComplete(walletData);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      alert(error.message || 'Failed to sign up with Supabase. Please try again.');
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   return (
@@ -316,10 +355,14 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
         <div className="flex items-center mb-8">
           {step > 1 && (
             <button onClick={() => {
-              // If on import screen (step 6), go back to mode selection (step 1)
+              // If on import screen (step 6), go back to mode selection (step 1) or landing
               if (step === 6 && mode === 'import') {
-                setStep(1);
-                setImportMnemonic(''); // Clear import data
+                if (initialMode === 'import') {
+                  onBack();
+                } else {
+                  setStep(1);
+                  setImportMnemonic(''); // Clear import data
+                }
               } else {
                 setStep(step - 1);
               }
@@ -350,7 +393,7 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
         {/* Step 1: Welcome */}
         {step === 1 && (
           <div className="text-center">
-            <h1 className="text-3xl mb-4 text-gray-900 dark:text-white">Welcome to Pluto</h1>
+            <h1 className="text-3xl mb-4 text-gray-900 dark:text-white">Welcome to Xbyte</h1>
             <p className="text-gray-600 dark:text-gray-300 mb-8">
               Let's get you started with your multi-chain wallet
             </p>
@@ -507,27 +550,6 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
                 )}
               </div>
 
-              {/* Phone Field */}
-              <div>
-                <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="tel"
-                  placeholder="+1 (234) 567-8900"
-                  value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  onBlur={() => setTouched({ ...touched, phone: true })}
-                  className={phoneError && touched.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
-                />
-                {phoneError && touched.phone && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    {phoneError}
-                  </p>
-                )}
-              </div>
-
               {/* Password Field */}
               <div>
                 <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
@@ -631,11 +653,9 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
               onClick={handleUserInfoSubmit}
               disabled={
                 !email || 
-                !phone || 
                 !password || 
                 !confirmPassword ||
                 (touched.email && !!emailError) ||
-                (touched.phone && !!phoneError) ||
                 (touched.password && !!passwordError) ||
                 (touched.confirmPassword && !!confirmPasswordError)
               }
@@ -656,8 +676,8 @@ export default function WalletOnboarding({ onComplete, onBack, onImportAuth }: W
               Your multi-chain wallet has been created successfully. 
               You can now manage BTC, ETH, SOL, BNB, and USDT from one place.
             </p>
-            <Button size="lg" className="w-full" onClick={completeSetup}>
-              Open Wallet
+            <Button size="lg" className="w-full" onClick={completeSetup} disabled={isRegistering}>
+              {isRegistering ? 'Registering Account...' : 'Open Wallet'}
             </Button>
           </div>
         )}

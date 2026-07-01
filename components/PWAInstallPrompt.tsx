@@ -99,7 +99,7 @@ export default function PWAInstallPrompt() {
             
             <div className="flex-1">
               <h3 className="text-gray-900 dark:text-white mb-1">
-                Install Pluto Wallet
+                Install Xbyte Wallet
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
                 Add to your home screen for quick access and offline support
@@ -142,7 +142,7 @@ export default function PWAInstallPrompt() {
             
             <div className="flex-1">
               <h3 className="text-gray-900 dark:text-white mb-1">
-                Install Pluto Wallet
+                Install Xbyte Wallet
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-300">
                 Add to your home screen for quick access and offline support

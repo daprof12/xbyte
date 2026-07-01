@@ -1,4 +1,4 @@
-# 📑 Pluto Wallet - Master Index
+# 📑 Xbyte Wallet - Master Index
 
 **Complete Documentation Navigation**  
 **Package Version:** 1.0.0  
@@ -130,7 +130,7 @@ Configuration and setup files:
 ## 📂 Documentation Structure
 
 ```
-📁 pluto-wallet/
+📁 xbyte-wallet/
 │
 ├── 📄 Quick Start (Read First)
 │   ├── DOWNLOAD_AND_RUN.md         ⚡ 3-step start
@@ -449,7 +449,7 @@ This index helps you navigate **25+ documentation files** covering:
 ✅ Cross-Platform Sync  
 ✅ Complete Reference  
 
-**Everything you need to build and launch Pluto Wallet!**
+**Everything you need to build and launch Xbyte Wallet!**
 
 ---
 

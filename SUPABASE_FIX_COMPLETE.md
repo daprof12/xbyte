@@ -199,7 +199,7 @@ npm run dev
 
 ### Step 3: Open Migration Panel
 
-1. Open your Pluto Wallet in the browser
+1. Open your Xbyte Wallet in the browser
 2. Create or unlock a wallet
 3. Go to **Settings** (gear icon)
 4. Click on **Sync** tab

@@ -1,4 +1,4 @@
-# 🔍 Pluto Wallet - Supabase Setup Status Checklist
+# 🔍 Xbyte Wallet - Supabase Setup Status Checklist
 
 Use this checklist to verify your Supabase setup is complete.
 
@@ -78,7 +78,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 1. **In Supabase Dashboard → SQL Editor:**
    - Look for success messages:
    ```
-   NOTICE: Pluto Wallet schema created successfully!
+   NOTICE: Xbyte Wallet schema created successfully!
    NOTICE: Total tables: 26
    NOTICE: Total functions: 5
    ```
@@ -316,4 +316,4 @@ Count your checkmarks:
 ---
 
 **Last Updated:** After creating schema files
-**Your Project:** Pluto Multi-Chain Wallet
+**Your Project:** Xbyte Multi-Chain Wallet

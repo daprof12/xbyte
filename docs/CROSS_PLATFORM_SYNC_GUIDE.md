@@ -1,4 +1,4 @@
-# Pluto Wallet - Cross-Platform Data Sync Architecture
+# Xbyte Wallet - Cross-Platform Data Sync Architecture
 
 ## Overview
 
@@ -109,7 +109,7 @@ interface SyncData {
   checksum: string;
 }
 
-class PlutoSyncService {
+class XbyteSyncService {
   private config: SyncConfig;
   private syncInterval: NodeJS.Timeout | null = null;
   private isOnline: boolean = navigator.onLine;
@@ -134,7 +134,7 @@ class PlutoSyncService {
 
     // Listen for localStorage changes (from other tabs)
     window.addEventListener('storage', (e) => {
-      if (e.key === 'pluto_wallet') {
+      if (e.key === 'xbyte_wallet') {
         this.handleLocalChange(e.newValue);
       }
     });
@@ -155,7 +155,7 @@ class PlutoSyncService {
   // Sync local data to cloud
   async syncToCloud() {
     try {
-      const localData = localStorage.getItem('pluto_wallet');
+      const localData = localStorage.getItem('xbyte_wallet');
       if (!localData) return;
 
       const walletData = JSON.parse(localData);
@@ -219,12 +219,12 @@ class PlutoSyncService {
       const cloudData = this.decryptData(syncData.data);
       
       // Get local data
-      const localData = localStorage.getItem('pluto_wallet');
+      const localData = localStorage.getItem('xbyte_wallet');
       const localWallet = localData ? JSON.parse(localData) : null;
 
       // Conflict resolution
       if (this.shouldUpdateLocal(localWallet, syncData)) {
-        localStorage.setItem('pluto_wallet', JSON.stringify(cloudData));
+        localStorage.setItem('xbyte_wallet', JSON.stringify(cloudData));
         
         // Notify app of update
         window.dispatchEvent(new CustomEvent('wallet-synced', {
@@ -282,11 +282,11 @@ class PlutoSyncService {
 
   // Get device identifier
   private getDeviceId(): string {
-    let deviceId = localStorage.getItem('pluto_device_id');
+    let deviceId = localStorage.getItem('xbyte_device_id');
     
     if (!deviceId) {
       deviceId = `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('pluto_device_id', deviceId);
+      localStorage.setItem('xbyte_device_id', deviceId);
     }
     
     return deviceId;
@@ -344,7 +344,7 @@ class PlutoSyncService {
   }
 }
 
-export default PlutoSyncService;
+export default XbyteSyncService;
 ```
 
 ---
@@ -355,17 +355,17 @@ export default PlutoSyncService;
 // /App.tsx
 
 import { useEffect, useRef } from 'react';
-import PlutoSyncService from './utils/syncService';
+import XbyteSyncService from './utils/syncService';
 
 export default function App() {
-  const syncServiceRef = useRef<PlutoSyncService | null>(null);
+  const syncServiceRef = useRef<XbyteSyncService | null>(null);
   const [walletData, setWalletData] = useState<any>(null);
 
   useEffect(() => {
     // Initialize sync service
     const userId = walletData?.userId || 'guest';
     
-    syncServiceRef.current = new PlutoSyncService({
+    syncServiceRef.current = new XbyteSyncService({
       userId: userId,
       apiEndpoint: 'https://your-api.com/api',
       apiKey: 'your-api-key',
@@ -390,7 +390,7 @@ export default function App() {
   // Update wallet and trigger sync
   const handleUpdateWallet = (newData: any) => {
     // Update local storage
-    localStorage.setItem('pluto_wallet', JSON.stringify(newData));
+    localStorage.setItem('xbyte_wallet', JSON.stringify(newData));
     
     // Update state
     setWalletData(newData);
@@ -552,7 +552,7 @@ app.listen(3000, () => {
 
 import Foundation
 
-class PlutoSyncService {
+class XbyteSyncService {
     private let apiEndpoint = "https://your-api.com/api"
     private let userId: String
     private var syncTimer: Timer?
@@ -573,7 +573,7 @@ class PlutoSyncService {
     // Sync to cloud
     func syncToCloud() {
         // Get data from UserDefaults
-        guard let walletData = UserDefaults.standard.string(forKey: "pluto_wallet") else {
+        guard let walletData = UserDefaults.standard.string(forKey: "xbyte_wallet") else {
             return
         }
         
@@ -630,7 +630,7 @@ class PlutoSyncService {
                 let decryptedData = self.decryptData(encryptedData)
                 
                 // Save to UserDefaults
-                UserDefaults.standard.set(decryptedData, forKey: "pluto_wallet")
+                UserDefaults.standard.set(decryptedData, forKey: "xbyte_wallet")
                 
                 // Notify app
                 NotificationCenter.default.post(name: .walletSynced, object: nil)
@@ -644,12 +644,12 @@ class PlutoSyncService {
     
     // Helper methods
     private func getDeviceId() -> String {
-        if let deviceId = UserDefaults.standard.string(forKey: "pluto_device_id") {
+        if let deviceId = UserDefaults.standard.string(forKey: "xbyte_device_id") {
             return deviceId
         }
         
         let newDeviceId = "ios-\(UUID().uuidString)"
-        UserDefaults.standard.set(newDeviceId, forKey: "pluto_device_id")
+        UserDefaults.standard.set(newDeviceId, forKey: "xbyte_device_id")
         return newDeviceId
     }
     
@@ -699,13 +699,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.*
 
-class PlutoSyncService(
+class XbyteSyncService(
     private val context: Context,
     private val userId: String
 ) {
     private val apiEndpoint = "https://your-api.com/api"
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("pluto_wallet", Context.MODE_PRIVATE)
+        context.getSharedPreferences("xbyte_wallet", Context.MODE_PRIVATE)
     
     private val client = OkHttpClient()
     private var syncJob: Job? = null
@@ -728,7 +728,7 @@ class PlutoSyncService(
     private suspend fun syncToCloud() {
         withContext(Dispatchers.IO) {
             try {
-                val walletData = prefs.getString("pluto_wallet", null) ?: return@withContext
+                val walletData = prefs.getString("xbyte_wallet", null) ?: return@withContext
                 
                 val deviceId = getDeviceId()
                 val version = getCloudVersion() + 1
@@ -783,7 +783,7 @@ class PlutoSyncService(
                     
                     // Save to SharedPreferences
                     prefs.edit()
-                        .putString("pluto_wallet", decryptedData)
+                        .putString("xbyte_wallet", decryptedData)
                         .apply()
                     
                     // Notify app
@@ -805,11 +805,11 @@ class PlutoSyncService(
     
     // Helper methods
     private fun getDeviceId(): String {
-        var deviceId = prefs.getString("pluto_device_id", null)
+        var deviceId = prefs.getString("xbyte_device_id", null)
         
         if (deviceId == null) {
             deviceId = "android-${UUID.randomUUID()}"
-            prefs.edit().putString("pluto_device_id", deviceId).apply()
+            prefs.edit().putString("xbyte_device_id", deviceId).apply()
         }
         
         return deviceId
@@ -857,7 +857,7 @@ import { getDatabase, ref, set, onValue } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: "your-api-key",
-  databaseURL: "https://pluto-wallet.firebaseio.com"
+  databaseURL: "https://xbyte-wallet.firebaseio.com"
 };
 
 const app = initializeApp(firebaseConfig);

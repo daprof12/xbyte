@@ -2,7 +2,7 @@
 
 ## What Was Done
 
-I've successfully converted your Pluto Wallet to work on **Web, iOS, and Android** by replacing all localStorage calls with a cross-platform storage solution.
+I've successfully converted your Xbyte Wallet to work on **Web, iOS, and Android** by replacing all localStorage calls with a cross-platform storage solution.
 
 ---
 
@@ -29,14 +29,14 @@ Main app file - all localStorage calls converted to use `storage` utility.
 ```typescript
 // Before:
 localStorage.getItem('darkMode')
-localStorage.setItem('pluto_wallet', JSON.stringify(data))
-localStorage.removeItem('pluto_admin_session')
+localStorage.setItem('xbyte_wallet', JSON.stringify(data))
+localStorage.removeItem('xbyte_admin_session')
 
 // After:
 import { storage, storageSync } from './utils/platform';
 storage.get('darkMode')
-storage.set('pluto_wallet', data)
-storage.remove('pluto_admin_session')
+storage.set('xbyte_wallet', data)
+storage.remove('xbyte_admin_session')
 ```
 
 ---
@@ -65,13 +65,13 @@ storage.get('key_name')
 **Example:**
 ```typescript
 // OLD:
-const data = localStorage.getItem('pluto_wallet');
+const data = localStorage.getItem('xbyte_wallet');
 if (data) {
   setWalletData(JSON.parse(data));
 }
 
 // NEW:
-const data = await storage.get('pluto_wallet');
+const data = await storage.get('xbyte_wallet');
 if (data) {
   setWalletData(data); // Already parsed!
 }
@@ -122,20 +122,20 @@ JSON.parse(localStorage.getItem('key') || '[]')
 ### **Critical Files (Update First):**
 
 1. **`/components/AdminLogin.tsx`**
-   - Line 35: `localStorage.setItem('pluto_admin_session', ...)`
+   - Line 35: `localStorage.setItem('xbyte_admin_session', ...)`
 
 2. **`/components/LandingPage.tsx`**
    - Line 40: `localStorage.getItem('darkMode')`
    - Line 64: `localStorage.setItem('darkMode', ...)`
 
 3. **`/components/WalletDashboard.tsx`**
-   - Line 103: `localStorage.getItem('pluto_wallet')`
-   - Line 275: `localStorage.getItem('pluto_wallet')`
+   - Line 103: `localStorage.getItem('xbyte_wallet')`
+   - Line 275: `localStorage.getItem('xbyte_wallet')`
 
 4. **`/components/WalletOnboarding.tsx`**
-   - Line 233: `localStorage.getItem('pluto_wallet')`
-   - Line 290: `localStorage.getItem('pluto_admin_users')`
-   - Line 306: `localStorage.setItem('pluto_admin_users', ...)`
+   - Line 233: `localStorage.getItem('xbyte_wallet')`
+   - Line 290: `localStorage.getItem('xbyte_admin_users')`
+   - Line 306: `localStorage.setItem('xbyte_admin_users', ...)`
 
 ### **Important Wallet Components:**
 
@@ -251,7 +251,7 @@ export default function AdminLogin({ onLogin, onBack }: AdminLoginProps) {
   const handleLogin = () => {
     if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
       // Store admin session
-      localStorage.setItem('pluto_admin_session', JSON.stringify({
+      localStorage.setItem('xbyte_admin_session', JSON.stringify({
         email: email,
         loginTime: new Date().toISOString(),
         expiresIn: '24h'
@@ -280,7 +280,7 @@ export default function AdminLogin({ onLogin, onBack }: AdminLoginProps) {
   const handleLogin = async () => {
     if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
       // Store admin session
-      await storage.set('pluto_admin_session', {
+      await storage.set('xbyte_admin_session', {
         email: email,
         loginTime: new Date().toISOString(),
         expiresIn: '24h'

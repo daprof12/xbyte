@@ -17,10 +17,10 @@ export default function NotificationModal({ onClose, onOpenSupport, walletId }: 
     const loadNotifications = () => {
       try {
         // Get wallet ID from localStorage if not provided
-        const currentWalletId = walletId || JSON.parse(dataService.getItem('pluto_wallet') || '{}').id;
+        const currentWalletId = walletId || JSON.parse(dataService.getItem('xbyte_wallet') || '{}').id;
         if (!currentWalletId) return;
         
-        const stored = dataService.getItem(`pluto_notifications_${currentWalletId}`);
+        const stored = dataService.getItem(`xbyte_notifications_${currentWalletId}`);
         if (stored) {
           setNotifications(JSON.parse(stored));
         }

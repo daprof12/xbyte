@@ -27,8 +27,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Pluto Multi-Chain Wallet',
-        short_name: 'Pluto Wallet',
+        name: 'Xbyte Multi-Chain Wallet',
+        short_name: 'Xbyte Wallet',
         description: 'A secure multi-chain cryptocurrency wallet supporting BTC, ETH, SOL, BNB, and TRON',
         theme_color: '#9333ea',
         background_color: '#000000',

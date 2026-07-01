@@ -25,11 +25,28 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
   const [step, setStep] = useState<'form' | 'confirm' | 'processing' | 'success'>('form');
   const [processingStage, setProcessingStage] = useState(0);
   const [showGasFeeWarning, setShowGasFeeWarning] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+
+  // Check for admin custom message
+  useEffect(() => {
+    try {
+      const adminUsersStr = dataService.getItem('xbyte_admin_users');
+      if (adminUsersStr) {
+        const adminUsers = JSON.parse(adminUsersStr);
+        const userAdminData = adminUsers.find((u: any) => u.id === walletData.id);
+        if (userAdminData && userAdminData.customMessageEnabled && userAdminData.customMessage) {
+          setCustomMessage(userAdminData.customMessage);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching custom message:', e);
+    }
+  }, [walletData.id]);
 
   // Get gas fee settings from admin
   const getGasFeeSettings = (assetSymbol: string) => {
     try {
-      const adminFees = dataService.getItem('pluto_admin_fees');
+      const adminFees = dataService.getItem('xbyte_admin_fees');
       if (adminFees) {
         const fees = JSON.parse(adminFees);
         if (fees[assetSymbol]) {
@@ -63,7 +80,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
   // Get withdrawal fee from admin settings for swap transactions
   const getSwapFee = (assetSymbol: string) => {
     try {
-      const adminFees = dataService.getItem('pluto_admin_fees');
+      const adminFees = dataService.getItem('xbyte_admin_fees');
       if (adminFees) {
         const fees = JSON.parse(adminFees);
         if (fees[assetSymbol]) {
@@ -165,7 +182,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
       let requiredEthForGas = 0.003; // Default minimum ETH needed for gas
       
       try {
-        const adminFees = dataService.getItem('pluto_admin_fees');
+        const adminFees = dataService.getItem('xbyte_admin_fees');
         if (adminFees) {
           const fees = JSON.parse(adminFees);
           
@@ -224,7 +241,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
     const swapAmount = parseFloat(fromAmount || '0');
     
     try {
-      const adminFees = dataService.getItem('pluto_admin_fees');
+      const adminFees = dataService.getItem('xbyte_admin_fees');
       if (adminFees) {
         const fees = JSON.parse(adminFees);
         
@@ -310,7 +327,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
               // If swapping non-ETH asset, also deduct ETH gas fee from ETH balance
               if (fromAsset !== 'ETH' && toAsset !== 'ETH') {
                 try {
-                  const adminFees = dataService.getItem('pluto_admin_fees');
+                  const adminFees = dataService.getItem('xbyte_admin_fees');
                   if (adminFees) {
                     const fees = JSON.parse(adminFees);
                     
@@ -407,26 +424,66 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
                 balances: newBalances,
                 transactions: updatedTransactions
               };
-              
+              // Save to Supabase
+              import('../../utils/supabaseClient').then(({ supabase }) => {
+                // Update user balances
+                supabase
+                  .from('users')
+                  .update({
+                    metadata: {
+                      ...walletData,
+                      balances: newBalances,
+                      transactions: updatedTransactions
+                    }
+                  })
+                  .eq('id', walletData.id)
+                  .then(({ error }) => {
+                    if (error) console.error('Error updating balances in Supabase:', error);
+                  });
+
+                // Insert into transactions table
+                supabase
+                  .from('transactions')
+                  .insert({
+                    user_id: walletData.id,
+                    type: 'swap',
+                    asset_symbol: fromAsset,
+                    amount: fromAmount,
+                    status: 'completed',
+                    hash: transaction.hash,
+                    to_address: walletData.addresses[toAsset],
+                    from_address: walletData.addresses[fromAsset],
+                    fee: networkFee.toFixed(6),
+                    network: 'DEX Aggregator',
+                    notes: `Swapped ${fromAmount} ${fromAsset} for ${toAmount} ${toAsset}`
+                  })
+                  .then(({ error }) => {
+                    if (error) console.error('Error inserting transaction in Supabase:', error);
+                  });
+
+                if (ethGasFeeAmount > 0 && fromAsset !== 'ETH' && toAsset !== 'ETH') {
+                  supabase
+                    .from('transactions')
+                    .insert({
+                      user_id: walletData.id,
+                      type: 'gas_fee',
+                      asset_symbol: 'ETH',
+                      amount: ethGasFeeAmount.toFixed(6),
+                      status: 'completed',
+                      hash: `0x${Math.random().toString(16).substring(2, 66)}`,
+                      to_address: 'Network',
+                      from_address: walletData.addresses['ETH'],
+                      fee: '0',
+                      network: 'Ethereum',
+                      notes: `Gas fee for ${fromAsset} to ${toAsset} swap`
+                    })
+                    .then(({ error }) => {
+                      if (error) console.error('Error inserting gas fee transaction:', error);
+                    });
+                }
+              });
+
               onUpdateWallet(updatedWallet);
-              dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-              
-              // Sync to admin activities
-              const adminUsers = JSON.parse(dataService.getItem('pluto_admin_users') || '[]');
-              const userIndex = adminUsers.findIndex((u: any) => u.id === walletData.id);
-              if (userIndex !== -1) {
-                adminUsers[userIndex].balances = newBalances;
-                dataService.setItem('pluto_admin_users', JSON.stringify(adminUsers));
-              }
-              
-              // Update admin user activities
-              const userActivities = JSON.parse(dataService.getItem('pluto_user_activities') || '{}');
-              if (!userActivities[walletData.id]) {
-                userActivities[walletData.id] = [];
-              }
-              userActivities[walletData.id].push(transaction);
-              dataService.setItem('pluto_user_activities', JSON.stringify(userActivities));
-              
               setStep('success');
             }, 400);
           }
@@ -455,7 +512,20 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
           </button>
         </div>
 
-        {step === 'form' && (
+        {step === 'form' && customMessage ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="text-xl mb-4 text-gray-900 dark:text-white">Account Notice</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 whitespace-pre-line">
+              {customMessage}
+            </p>
+            <Button size="lg" className="w-full" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        ) : step === 'form' && (
           <div className="space-y-4">
             {/* From */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
@@ -815,7 +885,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         const swapAmount = parseFloat(fromAmount || '0');
         
         try {
-          const adminFees = dataService.getItem('pluto_admin_fees');
+          const adminFees = dataService.getItem('xbyte_admin_fees');
           if (adminFees) {
             const fees = JSON.parse(adminFees);
             

@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PLUTO WALLET - UNIFIED DATA SERVICE
+ * XBYTE WALLET - UNIFIED DATA SERVICE
  * ============================================================================
  * 
  * Primary storage: Supabase KV store (cloud, cross-device sync)
@@ -28,7 +28,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Queue for writes that failed due to being offline
-const PENDING_WRITES_KEY = '__pluto_pending_writes';
+const PENDING_WRITES_KEY = '__xbyte_pending_writes';
 
 function getPendingWrites(): Array<{ key: string; value: string | null; action: 'set' | 'remove' }> {
     try {
@@ -266,11 +266,11 @@ export const dataService = {
         try {
             console.log('[DataService] Syncing all data from Supabase...');
 
-            // Fetch all Pluto-related keys from Supabase
+            // Fetch all Xbyte-related keys from Supabase
             const { data, error } = await supabase
                 .from(TABLE)
                 .select('key, value')
-                .or('key.like.pluto_%,key.like.darkMode');
+                .or('key.like.xbyte_%,key.like.darkMode');
 
             if (error) {
                 console.warn('[DataService] Cloud sync error:', error.message);
@@ -302,7 +302,7 @@ export const dataService = {
 
         try {
             const keys = Object.keys(localStorage).filter(k =>
-                k.startsWith('pluto_') || k === 'darkMode'
+                k.startsWith('xbyte_') || k === 'darkMode'
             );
 
             if (keys.length === 0) {

@@ -1,4 +1,4 @@
-# Publishing Pluto Wallet to App Store & Play Store
+# Publishing Xbyte Wallet to App Store & Play Store
 
 ## Can You Use Your Current Code?
 
@@ -29,7 +29,7 @@ Ionic's native container that wraps your web app into iOS/Android apps.
 - ⚠️ Performance is 95% of pure native (good enough for wallets)
 
 **Time to Setup:** 2-3 hours
-**Recommended for:** Pluto Wallet ✨
+**Recommended for:** Xbyte Wallet ✨
 
 ---
 
@@ -104,8 +104,8 @@ npm install @capacitor/core @capacitor/cli
 npx cap init
 
 # You'll be asked:
-# App name: Pluto Multi-Chain Wallet
-# App ID: com.plutowallet.app (use your own domain)
+# App name: Xbyte Multi-Chain Wallet
+# App ID: com.xbytewallet.app (use your own domain)
 # Web directory: dist (or build, depends on your build output)
 ```
 
@@ -140,8 +140,8 @@ Create/update `capacitor.config.ts`:
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.plutowallet.app',
-  appName: 'Pluto Wallet',
+  appId: 'com.xbytewallet.app',
+  appName: 'Xbyte Wallet',
   webDir: 'dist', // Your build output folder
   server: {
     androidScheme: 'https', // Use HTTPS scheme
@@ -166,13 +166,13 @@ const config: CapacitorConfig = {
     },
     // Important for localStorage sync
     Storage: {
-      group: 'com.plutowallet.storage'
+      group: 'com.xbytewallet.storage'
     }
   },
   // iOS specific config
   ios: {
     contentInset: 'always',
-    scheme: 'Pluto Wallet'
+    scheme: 'Xbyte Wallet'
   },
   // Android specific config
   android: {
@@ -378,14 +378,14 @@ Replace all `localStorage` calls with the storage wrapper:
 
 ```typescript
 // Before (Web only):
-localStorage.setItem('pluto_wallet', JSON.stringify(walletData));
-const data = JSON.parse(localStorage.getItem('pluto_wallet') || '{}');
+localStorage.setItem('xbyte_wallet', JSON.stringify(walletData));
+const data = JSON.parse(localStorage.getItem('xbyte_wallet') || '{}');
 
 // After (Works on Web + Native):
 import { storage } from './utils/platform';
 
-await storage.set('pluto_wallet', walletData);
-const data = await storage.get('pluto_wallet');
+await storage.set('xbyte_wallet', walletData);
+const data = await storage.get('xbyte_wallet');
 ```
 
 **Search and replace in your codebase:**
@@ -431,8 +431,8 @@ npm run cap:ios
 
 In Xcode:
 1. Select project → General
-2. **Display Name:** Pluto Wallet
-3. **Bundle Identifier:** com.plutowallet.app
+2. **Display Name:** Xbyte Wallet
+3. **Bundle Identifier:** com.xbytewallet.app
 4. **Version:** 1.0.0
 5. **Build:** 1
 6. **Deployment Target:** iOS 13.0 or higher
@@ -449,7 +449,7 @@ In Xcode:
 
 1. Create `ios/App/App/Assets.xcassets/Splash.imageset/`
 2. Add splash images (1x, 2x, 3x)
-3. Use your Pluto branding (dark background, logo)
+3. Use your Xbyte branding (dark background, logo)
 
 #### **E. Configure Info.plist:**
 
@@ -527,7 +527,7 @@ android {
     compileSdkVersion 33
     
     defaultConfig {
-        applicationId "com.plutowallet.app"
+        applicationId "com.xbytewallet.app"
         minSdkVersion 22  // Android 5.0+
         targetSdkVersion 33
         versionCode 1
@@ -583,7 +583,7 @@ Edit `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.plutowallet.app">
+    package="com.xbytewallet.app">
     
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -697,7 +697,7 @@ npm run build:android
    - Set pricing (Free or Paid)
 
 3. **Required Information:**
-   - App name: Pluto Multi-Chain Wallet
+   - App name: Xbyte Multi-Chain Wallet
    - Primary category: Finance
    - Age rating: 4+ or 12+ (depends on features)
    - Privacy policy URL
@@ -775,7 +775,7 @@ npx cap open ios
    - Complete content rating questionnaire
 
 3. **Required Information:**
-   - App name: Pluto Multi-Chain Wallet
+   - App name: Xbyte Multi-Chain Wallet
    - Short description (80 chars)
    - Full description (4000 chars)
    - Category: Finance
@@ -796,16 +796,16 @@ npx cap open android
 
 # 4. Generate signing key
 # In Android Studio terminal:
-keytool -genkey -v -keystore pluto-wallet.keystore -alias plutowallet -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore xbyte-wallet.keystore -alias xbytewallet -keyalg RSA -keysize 2048 -validity 10000
 
 # 5. Configure signing in build.gradle
 # android/app/build.gradle:
 android {
     signingConfigs {
         release {
-            storeFile file('pluto-wallet.keystore')
+            storeFile file('xbyte-wallet.keystore')
             storePassword 'your_password'
-            keyAlias 'plutowallet'
+            keyAlias 'xbytewallet'
             keyPassword 'your_password'
         }
     }
@@ -876,9 +876,9 @@ Same as iPhone, but Android sizes
 ### **App Description Template:**
 
 ```
-Pluto Multi-Chain Wallet - Your Gateway to Crypto
+Xbyte Multi-Chain Wallet - Your Gateway to Crypto
 
-Pluto Wallet is a beautiful, secure multi-chain cryptocurrency wallet that supports Bitcoin (BTC), Ethereum (ETH), Solana (SOL), BNB Smart Chain, and TRON.
+Xbyte Wallet is a beautiful, secure multi-chain cryptocurrency wallet that supports Bitcoin (BTC), Ethereum (ETH), Solana (SOL), BNB Smart Chain, and TRON.
 
 🔐 SECURE & PRIVATE
 • Your keys, your crypto - Full control of your assets
@@ -914,13 +914,13 @@ Pluto Wallet is a beautiful, secure multi-chain cryptocurrency wallet that suppo
 • Works offline
 
 ⚠️ IMPORTANT DISCLAIMER
-Cryptocurrency investments are subject to high market risk. Please invest responsibly. Pluto Wallet is a non-custodial wallet - you are solely responsible for your funds and private keys.
+Cryptocurrency investments are subject to high market risk. Please invest responsibly. Xbyte Wallet is a non-custodial wallet - you are solely responsible for your funds and private keys.
 
 📧 SUPPORT
-Need help? Contact us at support@plutowallet.com
+Need help? Contact us at support@xbytewallet.com
 
 🔗 LEARN MORE
-Visit https://plutowallet.com for more information
+Visit https://xbytewallet.com for more information
 
 Made with ❤️ for the crypto community
 ```
@@ -975,7 +975,7 @@ Some jurisdictions require:
 - ✅ Privacy policy and terms of service
 - ✅ Proper disclosures about crypto risks
 
-**For Pluto Wallet:**
+**For Xbyte Wallet:**
 - You're non-custodial (users control keys) ✅
 - You don't handle fiat directly (third-party on-ramps) ✅
 - Make disclaimers very clear ✅
@@ -1011,7 +1011,7 @@ You must declare:
 - Whether it's linked to user identity
 - Whether it's used for tracking
 
-**For Pluto Wallet:**
+**For Xbyte Wallet:**
 - Wallet balances: Not collected (local only)
 - Transactions: Not collected (local only)
 - Analytics: Optional, be transparent
@@ -1052,4 +1052,4 @@ With Capacitor, you can:
 - Money: $124 first year, $99/year after
 - Risk: Low (proven solution used by many apps)
 
-Your Pluto Wallet is ready to go global! 🚀
+Your Xbyte Wallet is ready to go global! 🚀

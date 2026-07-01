@@ -1,6 +1,6 @@
 import dataService from '../../utils/dataService';
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, Globe, Upload, Shield, Key, Lock, Eye, EyeOff, Edit2, CheckCircle, Copy, Check, HelpCircle, Info, Camera, Fingerprint, AlertTriangle, Download, LogOut } from 'lucide-react';
+import { X, User, Mail, Phone, Globe, Upload, Shield, Key, Lock, Eye, EyeOff, Edit2, CheckCircle, Copy, Check, HelpCircle, Info, Camera, Fingerprint, AlertTriangle, Download, LogOut, Delete } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -26,7 +26,6 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
   // Profile state
   const [fullName, setFullName] = useState(walletData.fullName || 'John Doe');
   const [email, setEmail] = useState(walletData.email || 'user@example.com');
-  const [phone, setPhone] = useState(walletData.phone || '+1234567890');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -39,6 +38,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
   const [confirmNewPasscode, setConfirmNewPasscode] = useState('');
   const [biometricProcessing, setBiometricProcessing] = useState(false);
   const [twoFAError, setTwoFAError] = useState('');
+  const [passcodeStep, setPasscodeStep] = useState<'enter' | 'confirm'>('enter');
 
   const mnemonic = atob(walletData.mnemonic_encrypted).split(' ');
 
@@ -68,15 +68,34 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
   };
 
   const handleUpdateProfile = () => {
-    const updatedWallet = {
-      ...walletData,
-      fullName,
-      email,
-      phone,
-      avatar: avatarUrl
-    };
-    dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-    alert('Profile updated successfully!');
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: fullName,
+          email: email
+        })
+        .eq('id', walletData.id);
+
+      if (error) {
+        console.error('Error updating profile in Supabase:', error.message);
+        alert(`Error updating profile: ${error.message}`);
+        return;
+      }
+
+      const updatedWallet = {
+        ...walletData,
+        fullName,
+        email,
+        avatar: avatarUrl
+      };
+      
+      if (onUpdateWallet) {
+        onUpdateWallet(updatedWallet, false);
+      }
+      dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+      alert('Profile updated successfully!');
+    });
   };
 
   const handleResetPassword = () => {
@@ -88,10 +107,30 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
       alert('New passwords do not match');
       return;
     }
-    alert('Password reset successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('Error resetting password in Supabase:', error.message);
+        alert(`Error resetting password: ${error.message}`);
+        return;
+      }
+
+      await supabase
+        .from('users')
+        .update({
+          password_hash: newPassword
+        })
+        .eq('id', walletData.id);
+
+      alert('Password reset successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    });
   };
 
   const handleAvatarChange = () => {
@@ -106,8 +145,8 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
       setTwoFAError('Please enter and confirm your passcode');
       return;
     }
-    if (newPasscode.length !== 6) {
-      setTwoFAError('Passcode must be 6 digits');
+    if (newPasscode.length !== 4) {
+      setTwoFAError('Passcode must be 4 digits');
       return;
     }
     if (newPasscode !== confirmNewPasscode) {
@@ -126,15 +165,39 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
       }
     };
     
-    if (onUpdateWallet) {
-      onUpdateWallet(updatedWallet);
-    }
-    dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-    setTwoFAError('');
-    setShow2FASetup(false);
-    setNewPasscode('');
-    setConfirmNewPasscode('');
-    alert('Passcode authentication enabled successfully!');
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          metadata: {
+            ...walletData.metadata,
+            kyc_status: walletData.kyc_status || 'pending',
+            balances: walletData.balances || {},
+            addresses: walletData.addresses || {},
+            twoFactorAuth: updatedWallet.twoFactorAuth,
+            customMessage: walletData.customMessage || '',
+            customMessageEnabled: walletData.customMessageEnabled || false
+          }
+        })
+        .eq('id', walletData.id);
+
+      if (error) {
+        console.error('Error updating 2FA passcode in Supabase:', error.message);
+        alert(`Error enabling 2FA: ${error.message}`);
+        return;
+      }
+
+      if (onUpdateWallet) {
+        onUpdateWallet(updatedWallet, false);
+      }
+      dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+      setTwoFAError('');
+      setShow2FASetup(false);
+      setNewPasscode('');
+      setConfirmNewPasscode('');
+      setPasscodeStep('enter');
+      alert('Passcode authentication enabled successfully!');
+    });
   };
 
   const handleSetupBiometric = async () => {
@@ -149,7 +212,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
           } else {
             reject(new Error('Biometric setup failed'));
           }
-        }, 2000);
+        }, 1500);
       });
 
       const updatedWallet = {
@@ -164,13 +227,37 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
         }
       };
       
-      if (onUpdateWallet) {
-        onUpdateWallet(updatedWallet);
-      }
-      dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-      setBiometricProcessing(false);
-      setShow2FASetup(false);
-      alert('Biometric authentication enabled successfully!');
+      import('../../utils/supabaseClient').then(async ({ supabase }) => {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            metadata: {
+              ...walletData.metadata,
+              kyc_status: walletData.kyc_status || 'pending',
+              balances: walletData.balances || {},
+              addresses: walletData.addresses || {},
+              twoFactorAuth: updatedWallet.twoFactorAuth,
+              customMessage: walletData.customMessage || '',
+              customMessageEnabled: walletData.customMessageEnabled || false
+            }
+          })
+          .eq('id', walletData.id);
+
+        if (error) {
+          console.error('Error enabling biometric in Supabase:', error.message);
+          alert(`Error saving biometric setting: ${error.message}`);
+          setBiometricProcessing(false);
+          return;
+        }
+
+        if (onUpdateWallet) {
+          onUpdateWallet(updatedWallet, false);
+        }
+        dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+        setBiometricProcessing(false);
+        setShow2FASetup(false);
+        alert('Biometric authentication enabled successfully!');
+      });
     } catch (err) {
       setBiometricProcessing(false);
       setTwoFAError('Biometric setup failed. Please try again.');
@@ -190,11 +277,34 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
         }
       };
       
-      if (onUpdateWallet) {
-        onUpdateWallet(updatedWallet);
-      }
-      dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-      alert('Two-Factor Authentication has been disabled');
+      import('../../utils/supabaseClient').then(async ({ supabase }) => {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            metadata: {
+              ...walletData.metadata,
+              kyc_status: walletData.kyc_status || 'pending',
+              balances: walletData.balances || {},
+              addresses: walletData.addresses || {},
+              twoFactorAuth: updatedWallet.twoFactorAuth,
+              customMessage: walletData.customMessage || '',
+              customMessageEnabled: walletData.customMessageEnabled || false
+            }
+          })
+          .eq('id', walletData.id);
+
+        if (error) {
+          console.error('Error disabling 2FA in Supabase:', error.message);
+          alert(`Error disabling 2FA: ${error.message}`);
+          return;
+        }
+
+        if (onUpdateWallet) {
+          onUpdateWallet(updatedWallet, false);
+        }
+        dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+        alert('Two-Factor Authentication has been disabled');
+      });
     }
   };
 
@@ -207,12 +317,35 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
       }
     };
     
-    if (onUpdateWallet) {
-      onUpdateWallet(updatedWallet);
-    }
-    dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
-    setTwoFAMethod(method);
-    alert(`Preferred authentication method changed to ${method}`);
+    import('../../utils/supabaseClient').then(async ({ supabase }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          metadata: {
+            ...walletData.metadata,
+            kyc_status: walletData.kyc_status || 'pending',
+            balances: walletData.balances || {},
+            addresses: walletData.addresses || {},
+            twoFactorAuth: updatedWallet.twoFactorAuth,
+            customMessage: walletData.customMessage || '',
+            customMessageEnabled: walletData.customMessageEnabled || false
+          }
+        })
+        .eq('id', walletData.id);
+
+      if (error) {
+        console.error('Error updating 2FA method in Supabase:', error.message);
+        alert(`Error saving 2FA preference: ${error.message}`);
+        return;
+      }
+
+      if (onUpdateWallet) {
+        onUpdateWallet(updatedWallet, false);
+      }
+      dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+      setTwoFAMethod(method);
+      alert(`Preferred authentication method changed to ${method}`);
+    });
   };
 
   const chains = loadAssetConfig().map(asset => ({
@@ -285,15 +418,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                     placeholder="Enter your email"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">Phone Number</label>
-                  <Input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your phone number"
-                  />
-                </div>
+
                 <Button onClick={handleUpdateProfile} className="w-full">
                   Update Profile
                 </Button>
@@ -424,7 +549,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                             <Lock className={`w-5 h-5 ${twoFAMethod === 'passcode' ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm text-gray-900 dark:text-white">6-Digit Passcode</p>
+                            <p className="text-sm text-gray-900 dark:text-white">4-Digit Passcode</p>
                             <p className="text-xs text-gray-600 dark:text-gray-400">Use numeric passcode</p>
                           </div>
                           {twoFAMethod === 'passcode' && (
@@ -516,49 +641,128 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                     </h3>
 
                     {twoFAMethod === 'passcode' ? (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Enter Passcode</label>
-                          <input
-                            type="password"
-                            value={newPasscode}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                              setNewPasscode(value);
-                              setTwoFAError('');
-                            }}
-                            placeholder="Enter 6-digit passcode"
-                            className="w-full p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-center text-xl tracking-widest text-gray-900 dark:text-white"
-                            maxLength={6}
-                            inputMode="numeric"
-                          />
+                      <div className="space-y-6">
+                        <div className="text-center">
+                          <label className="block text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">
+                            {passcodeStep === 'enter' ? 'Enter 4-Digit Passcode' : 'Confirm 4-Digit Passcode'}
+                          </label>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                            {passcodeStep === 'enter' ? 'Define a new security PIN' : 'Verify your new security PIN'}
+                          </p>
+                          
+                          {/* Dot Indicators */}
+                          <div className="flex justify-center gap-4 my-6">
+                            {[0, 1, 2, 3].map((index) => {
+                              const active = index < (passcodeStep === 'enter' ? newPasscode.length : confirmNewPasscode.length);
+                              return (
+                                <div
+                                  key={index}
+                                  className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
+                                    active
+                                      ? 'bg-purple-600 border-purple-600 scale-110 shadow-md shadow-purple-500/30'
+                                      : 'border-gray-300 dark:border-gray-600 bg-transparent'
+                                  }`}
+                                />
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Confirm Passcode</label>
-                          <input
-                            type="password"
-                            value={confirmNewPasscode}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                              setConfirmNewPasscode(value);
-                              setTwoFAError('');
-                            }}
-                            placeholder="Confirm 6-digit passcode"
-                            className="w-full p-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-center text-xl tracking-widest text-gray-900 dark:text-white"
-                            maxLength={6}
-                            inputMode="numeric"
-                          />
+
+                        {/* Numeric Keypad */}
+                        <div className="space-y-2 sm:space-y-3 max-w-[240px] mx-auto">
+                          {/* Numbers 1-9 in 3x3 grid */}
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => {
+                                  const currentVal = passcodeStep === 'enter' ? newPasscode : confirmNewPasscode;
+                                  if (currentVal.length < 4) {
+                                    const nextVal = currentVal + num;
+                                    if (passcodeStep === 'enter') {
+                                      setNewPasscode(nextVal);
+                                      if (nextVal.length === 4) {
+                                        setTimeout(() => setPasscodeStep('confirm'), 250);
+                                      }
+                                    } else {
+                                      setConfirmNewPasscode(nextVal);
+                                    }
+                                  }
+                                }}
+                                className="w-16 h-16 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl font-semibold text-gray-900 dark:text-white"
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Bottom Row */}
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            <div className="w-16 h-16" /> {/* Empty spacing */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentVal = passcodeStep === 'enter' ? newPasscode : confirmNewPasscode;
+                                if (currentVal.length < 4) {
+                                  const nextVal = currentVal + '0';
+                                  if (passcodeStep === 'enter') {
+                                    setNewPasscode(nextVal);
+                                    if (nextVal.length === 4) {
+                                      setTimeout(() => setPasscodeStep('confirm'), 250);
+                                    }
+                                  } else {
+                                    setConfirmNewPasscode(nextVal);
+                                  }
+                                }
+                              }}
+                              className="w-16 h-16 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-95 transition-all text-2xl font-semibold text-gray-900 dark:text-white"
+                            >
+                              0
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (passcodeStep === 'enter') {
+                                  setNewPasscode(prev => prev.slice(0, -1));
+                                } else {
+                                  setConfirmNewPasscode(prev => prev.slice(0, -1));
+                                }
+                              }}
+                              className="w-16 h-16 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 active:scale-95 transition-all flex items-center justify-center text-gray-600 dark:text-gray-400"
+                            >
+                              <Delete className="w-6 h-6" />
+                            </button>
+                          </div>
                         </div>
+
                         {twoFAError && (
-                          <p className="text-sm text-red-600 dark:text-red-400">{twoFAError}</p>
+                          <p className="text-sm text-red-600 dark:text-red-400 text-center font-medium">{twoFAError}</p>
                         )}
-                        <div className="flex gap-3">
-                          <Button variant="outline" onClick={() => setShow2FASetup(false)} className="flex-1">
+
+                        <div className="flex gap-3 pt-2">
+                          <Button 
+                            variant="outline" 
+                            type="button"
+                            onClick={() => {
+                              setShow2FASetup(false);
+                              setNewPasscode('');
+                              setConfirmNewPasscode('');
+                              setPasscodeStep('enter');
+                            }} 
+                            className="flex-1"
+                          >
                             Cancel
                           </Button>
-                          <Button onClick={handleSetupPasscode} className="flex-1">
-                            Save
-                          </Button>
+                          {passcodeStep === 'confirm' && (
+                            <Button 
+                              type="button"
+                              onClick={handleSetupPasscode} 
+                              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium"
+                            >
+                              Save
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -670,7 +874,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-xl text-gray-900 dark:text-white">Pluto Wallet</h3>
+                  <h3 className="text-xl text-gray-900 dark:text-white">Xbyte Wallet</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Version 1.0.0</p>
                 </div>
               </div>

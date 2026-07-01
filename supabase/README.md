@@ -1,4 +1,4 @@
-# Pluto Multi-Chain Wallet - Supabase Migration Guide
+# Xbyte Multi-Chain Wallet - Supabase Migration Guide
 
 This directory contains all the SQL scripts and migration tools needed to set up Supabase for cross-platform sync.
 

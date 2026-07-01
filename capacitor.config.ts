@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.plutowallet.app',
-  appName: 'Pluto Wallet',
+  appId: 'com.xbytewallet.app',
+  appName: 'Xbyte Wallet',
   webDir: 'dist',
   bundledWebRuntime: false,
   plugins: {

@@ -1,8 +1,8 @@
-# 🚀 Pluto Multi-Chain Wallet
+# 🚀 Xbyte Multi-Chain Wallet
 
 <div align="center">
 
-![Pluto Wallet](public/icons/icon-192x192.png)
+![Xbyte Wallet](public/icons/icon-192x192.png)
 
 **A beautiful hybrid custodial/non-custodial cryptocurrency wallet**
 
@@ -17,9 +17,9 @@ Supporting BTC • ETH • SOL • BNB • TRON
 
 ---
 
-## 📱 What is Pluto Wallet?
+## 📱 What is Xbyte Wallet?
 
-Pluto Wallet is a **full-featured cryptocurrency wallet** built with React, TypeScript, and Tailwind CSS. It works as:
+Xbyte Wallet is a **full-featured cryptocurrency wallet** built with React, TypeScript, and Tailwind CSS. It works as:
 
 - 🌐 **Progressive Web App (PWA)** - Install on any device
 - 🍎 **iOS Native App** - Publish to App Store
@@ -80,7 +80,7 @@ Pluto Wallet is a **full-featured cryptocurrency wallet** built with React, Type
 
 ```bash
 # 1. Clone or extract the project
-cd pluto-wallet
+cd xbyte-wallet
 
 # 2. Install dependencies
 npm install
@@ -100,7 +100,7 @@ npm run dev
 
 ### **Admin Dashboard:**
 - **URL:** Click "Admin Portal" on landing page
-- **Email:** `admin@pluto.io`
+- **Email:** `admin@xbyte.io`
 - **Password:** `Admin@123`
 
 ### **Create Test Wallet:**
@@ -114,7 +114,7 @@ npm run dev
 ## 📂 Project Structure
 
 ```
-pluto-wallet/
+xbyte-wallet/
 ├── public/              # Static assets
 │   ├── icons/          # App icons (PWA, iOS, Android)
 │   └── manifest.json   # PWA manifest
@@ -259,8 +259,8 @@ See: [PWA_INSTALL_GUIDE.md](docs/PWA_INSTALL_GUIDE.md)
 Edit `capacitor.config.ts`:
 ```typescript
 {
-  appId: 'com.plutowallet.app',    // Change this!
-  appName: 'Pluto Wallet',
+  appId: 'com.xbytewallet.app',    // Change this!
+  appName: 'Xbyte Wallet',
   webDir: 'dist'
 }
 ```
@@ -271,8 +271,8 @@ Edit `vite.config.ts` → `VitePWA` section:
 ```typescript
 {
   manifest: {
-    name: 'Pluto Multi-Chain Wallet',
-    short_name: 'Pluto Wallet',
+    name: 'Xbyte Multi-Chain Wallet',
+    short_name: 'Xbyte Wallet',
     // ...
   }
 }
@@ -392,9 +392,9 @@ See [LICENSE](LICENSE) for details.
 
 ## 📞 Support
 
-- 📧 Email: support@plutowallet.com
+- 📧 Email: support@xbytewallet.com
 - 💬 Discord: [Join our community](#)
-- 🐦 Twitter: [@PlutoWallet](#)
+- 🐦 Twitter: [@XbyteWallet](#)
 - 📖 Docs: [Full documentation](docs/)
 
 ---
@@ -421,7 +421,7 @@ If you find this project useful, please consider giving it a star! ⭐
 
 <div align="center">
 
-Made with ❤️ by the Pluto Wallet Team
+Made with ❤️ by the Xbyte Wallet Team
 
 **[Website](#) • [Twitter](#) • [Discord](#)**
 

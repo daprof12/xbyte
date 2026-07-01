@@ -1,5 +1,5 @@
 -- ============================================================================
--- PLUTO MULTI-CHAIN WALLET - COMPLETE DATABASE SCHEMA
+-- XBYTE MULTI-CHAIN WALLET - COMPLETE DATABASE SCHEMA
 -- ============================================================================
 -- This schema captures all wallet functionality, localStorage data,
 -- and cross-platform sync capabilities for Web (PWA), iOS, and Android
@@ -38,15 +38,15 @@ CREATE TYPE sync_status AS ENUM ('pending', 'syncing', 'synced', 'conflict', 'fa
 -- CORE TABLES
 -- ============================================================================
 
--- Users table (maps to localStorage: pluto_wallet, pluto_admin_users)
+-- Users table (maps to localStorage: xbyte_wallet, xbyte_admin_users)
 CREATE TABLE public.users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL, -- Encrypted password
     full_name TEXT,
-    phone TEXT,
     status user_status DEFAULT 'active',
     is_admin BOOLEAN DEFAULT FALSE,
+    role TEXT DEFAULT 'user',
     is_verified BOOLEAN DEFAULT FALSE,
     last_login_at TIMESTAMPTZ,
     login_count INTEGER DEFAULT 0,
@@ -111,7 +111,7 @@ CREATE TABLE public.wallets (
     metadata JSONB DEFAULT '{}'::JSONB
 );
 
--- Assets/Coins configuration (maps to localStorage: pluto_asset_config)
+-- Assets/Coins configuration (maps to localStorage: xbyte_asset_config)
 CREATE TABLE public.assets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     symbol TEXT UNIQUE NOT NULL, -- BTC, ETH, SOL, BNB, TRX, USDT, etc.
@@ -159,7 +159,7 @@ CREATE TABLE public.wallet_addresses (
     UNIQUE(wallet_id, asset_id, address)
 );
 
--- Transactions (maps to localStorage: pluto_user_activities, walletData.transactions)
+-- Transactions (maps to localStorage: xbyte_user_activities, walletData.transactions)
 CREATE TABLE public.transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     wallet_id UUID REFERENCES public.wallets(id) ON DELETE CASCADE,
@@ -248,7 +248,7 @@ CREATE TABLE public.asset_prices (
     UNIQUE(asset_id, last_updated_at)
 );
 
--- Admin fee settings (maps to localStorage: pluto_admin_fees)
+-- Admin fee settings (maps to localStorage: xbyte_admin_fees)
 CREATE TABLE public.admin_fee_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     asset_id UUID REFERENCES public.assets(id) ON DELETE CASCADE,
@@ -276,7 +276,7 @@ CREATE TABLE public.admin_fee_settings (
     UNIQUE(asset_symbol)
 );
 
--- User notifications (maps to localStorage: pluto_notifications_{userId})
+-- User notifications (maps to localStorage: xbyte_notifications_{userId})
 CREATE TABLE public.user_notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
@@ -294,7 +294,7 @@ CREATE TABLE public.user_notifications (
 -- SUPPORT SYSTEM TABLES
 -- ============================================================================
 
--- Support tickets (maps to localStorage: pluto_support_tickets)
+-- Support tickets (maps to localStorage: xbyte_support_tickets)
 CREATE TABLE public.support_tickets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ticket_number TEXT UNIQUE NOT NULL,
@@ -320,7 +320,7 @@ CREATE TABLE public.support_ticket_messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Live chat (maps to localStorage: pluto_live_chats)
+-- Live chat (maps to localStorage: xbyte_live_chats)
 CREATE TABLE public.live_chats (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
@@ -399,7 +399,7 @@ CREATE TABLE public.sync_conflicts (
 -- AUDIT LOGGING
 -- ============================================================================
 
--- Audit logs (maps to localStorage: pluto_admin_audit_logs)
+-- Audit logs (maps to localStorage: xbyte_admin_audit_logs)
 CREATE TABLE public.audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -781,7 +781,7 @@ COMMENT ON FUNCTION get_platform_statistics IS 'Get platform-wide statistics for
 
 DO $$
 BEGIN
-    RAISE NOTICE 'Pluto Wallet schema created successfully!';
+    RAISE NOTICE 'Xbyte Wallet schema created successfully!';
     RAISE NOTICE 'Total tables: 26';
     RAISE NOTICE 'Total functions: 5';
     RAISE NOTICE 'Cross-platform sync: Enabled';

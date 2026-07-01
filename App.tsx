@@ -9,12 +9,15 @@ import UnlockWallet from './components/UnlockWallet';
 import TwoFactorAuth from './components/TwoFactorAuth';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import UserLogin from './components/UserLogin';
+import LandingSubPage from './components/LandingSubPage';
 import { initializeAssetConfig } from './utils/assetConfig';
 import { useServiceWorker } from './hooks/useServiceWorker';
 import { storage, storageSync } from './utils/platform';
 import dataService from './utils/dataService';
+import { saveWalletDataToDB } from './utils/supabaseHelpers';
 
-type View = 'landing' | 'onboarding' | 'wallet' | 'admin' | 'adminLogin' | 'unlock' | '2fa-setup' | '2fa-auth' | 'import-auth' | 'privacy';
+type View = 'landing' | 'onboarding' | 'import-wallet' | 'wallet' | 'admin' | 'adminLogin' | 'unlock' | '2fa-setup' | '2fa-auth' | 'import-auth' | 'privacy' | 'login' | 'p2p' | 'market' | 'explorer' | 'api' | 'blog' | 'gateway' | 'cards' | 'trading' | 'staking';
 
 export default function App() {
   const [view, setView] = useState<View>(() => {
@@ -25,10 +28,10 @@ export default function App() {
       }
 
       // Initialize view based on session state
-      const savedView = sessionStorage.getItem('pluto_current_view') as View | null;
-      const existingWallet = storageSync.get('pluto_wallet');
-      const activeWalletSession = sessionStorage.getItem('pluto_session_active');
-      const activeAdminSession = storageSync.get('pluto_admin_session');
+      const savedView = sessionStorage.getItem('xbyte_current_view') as View | null;
+      const existingWallet = storageSync.get('xbyte_wallet');
+      const activeWalletSession = sessionStorage.getItem('xbyte_session_active');
+      const activeAdminSession = storageSync.get('xbyte_admin_session');
 
       // Restore landing page if user was there
       if (savedView === 'landing') {
@@ -43,6 +46,11 @@ export default function App() {
       // Restore admin login page
       if (savedView === 'adminLogin') {
         return 'adminLogin';
+      }
+
+      // Restore user login page
+      if (savedView === 'login') {
+        return 'login';
       }
 
       // Restore wallet view if wallet is unlocked
@@ -83,18 +91,18 @@ export default function App() {
   });
   const [walletData, setWalletData] = useState<any>(() => {
     // Initialize wallet data from storage
-    return storageSync.get('pluto_wallet') || null;
+    return storageSync.get('xbyte_wallet') || null;
   });
   const [showingAssetOverview, setShowingAssetOverview] = useState(false);
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(() => {
     // Initialize unlock state from session
-    return sessionStorage.getItem('pluto_session_active') === 'true';
+    return sessionStorage.getItem('xbyte_session_active') === 'true';
   });
   const [importWalletData, setImportWalletData] = useState<any>(null); // Temporary storage for import authentication
 
   // Persist current view to sessionStorage whenever it changes
   useEffect(() => {
-    sessionStorage.setItem('pluto_current_view', view);
+    sessionStorage.setItem('xbyte_current_view', view);
 
     // Sync browser URL
     if (typeof window !== 'undefined') {
@@ -109,27 +117,68 @@ export default function App() {
   // Initialize PWA service worker
   const { isSupported: swSupported, isRegistered: swRegistered } = useServiceWorker();
 
-  // Initialize asset configuration and sync with Supabase on app load
+  // Initialize asset configuration and Supabase session on app load
   useEffect(() => {
     initializeAssetConfig();
 
-    // Sync data with Supabase cloud on app start
-    dataService.syncAllFromCloud().then(() => {
-      console.log('☁️ Supabase cloud sync complete');
-      // Re-read wallet data after cloud sync in case it was updated
-      const synced = storageSync.get('pluto_wallet');
-      if (synced && JSON.stringify(synced) !== JSON.stringify(walletData)) {
-        setWalletData(synced);
-      }
-    }).catch(err => {
-      console.warn('☁️ Cloud sync skipped (offline or not configured):', err);
-    });
+    // Check active Supabase session
+    import('./utils/supabaseClient').then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          console.log('✅ Supabase session active:', session.user.email);
+          
+          // Verify if they are trying to access admin view but are not an admin
+          const currentView = sessionStorage.getItem('xbyte_current_view');
+          if (currentView === 'admin' || view === 'admin') {
+            supabase
+              .from('users')
+              .select('is_admin')
+              .eq('id', session.user.id)
+              .maybeSingle()
+              .then(({ data }) => {
+                if (!data || !data.is_admin) {
+                  console.warn('⚠️ Non-admin session tried to access admin dashboard. Redirecting to admin login.');
+                  storage.remove('xbyte_admin_session');
+                  setView('adminLogin');
+                }
+              });
+          }
 
-    // Push existing local data to cloud (first-time migration)
-    dataService.pushAllToCloud().then(result => {
-      if (result.count > 0) {
-        console.log(`☁️ Pushed ${result.count} items to Supabase`);
-      }
+          // Fetch freshest data from database to replace stale cached localStorage
+          import('./utils/supabaseHelpers').then(({ fetchUserWalletFromDB }) => {
+            fetchUserWalletFromDB(session.user.id)
+              .then((freshWallet) => {
+                if (freshWallet) {
+                  setWalletData(freshWallet);
+                  storage.set('xbyte_wallet', freshWallet);
+                }
+              })
+              .catch((err) => console.error('Error auto-syncing wallet with Supabase on mount:', err));
+          });
+        } else {
+          // If we are in admin view but have no Supabase session, redirect to login
+          const currentView = sessionStorage.getItem('xbyte_current_view');
+          if (currentView === 'admin' || view === 'admin') {
+            storage.remove('xbyte_admin_session');
+            setView('adminLogin');
+          }
+        }
+      });
+      
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session) {
+          // User or Admin logged out / session expired
+          setIsWalletUnlocked(false);
+          sessionStorage.removeItem('xbyte_session_active');
+          storage.remove('xbyte_admin_session');
+          
+          if (view === 'wallet') {
+            setView('unlock');
+          } else if (view === 'admin') {
+            setView('adminLogin');
+          }
+        }
+      });
     });
   }, []);
 
@@ -151,7 +200,7 @@ export default function App() {
 
   useEffect(() => {
     // Load wallet from storage
-    storage.get('pluto_wallet').then((existingWallet) => {
+    storage.get('xbyte_wallet').then((existingWallet) => {
       if (existingWallet) {
         setWalletData(existingWallet);
       }
@@ -159,7 +208,7 @@ export default function App() {
 
     // Listen for storage changes (when admin updates balance from different tab)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'pluto_wallet' && e.newValue) {
+      if (e.key === 'xbyte_wallet' && e.newValue) {
         const updatedWallet = JSON.parse(e.newValue);
         setWalletData(updatedWallet);
       }
@@ -181,9 +230,17 @@ export default function App() {
     };
   }, []);
 
-  const handleWalletCreated = (data: any) => {
+  const handleWalletCreated = async (data: any) => {
     setWalletData(data);
-    storage.set('pluto_wallet', data);
+    storage.set('xbyte_wallet', data);
+    
+    // Sync to Supabase DB
+    try {
+      await saveWalletDataToDB(data);
+    } catch (e) {
+      console.error('Failed to sync created wallet to DB:', e);
+    }
+
     // Check if 2FA is set up
     if (!data.twoFactorAuth?.enabled) {
       setView('2fa-setup');
@@ -196,7 +253,7 @@ export default function App() {
   const handleLockWallet = () => {
     // When locking, mark wallet as locked and show unlock screen if wallet exists
     setIsWalletUnlocked(false);
-    sessionStorage.removeItem('pluto_session_active');
+    sessionStorage.removeItem('xbyte_session_active');
     if (walletData) {
       setView('unlock');
     } else {
@@ -210,14 +267,14 @@ export default function App() {
       setView('2fa-auth');
     } else {
       setIsWalletUnlocked(true);
-      sessionStorage.setItem('pluto_session_active', 'true');
+      sessionStorage.setItem('xbyte_session_active', 'true');
       setView('wallet');
     }
   };
 
   const handle2FASuccess = () => {
     setIsWalletUnlocked(true);
-    sessionStorage.setItem('pluto_session_active', 'true');
+    sessionStorage.setItem('xbyte_session_active', 'true');
     setView('wallet');
   };
 
@@ -225,9 +282,18 @@ export default function App() {
     setView('unlock');
   };
 
-  const handleUpdateWallet = (data: any) => {
+  const handleUpdateWallet = async (data: any, syncToDB = true) => {
     setWalletData(data);
-    storage.set('pluto_wallet', data);
+    storage.set('xbyte_wallet', data);
+
+    if (syncToDB) {
+      // Sync to Supabase DB in background
+      try {
+        await saveWalletDataToDB(data);
+      } catch (e) {
+        console.error('Failed to sync updated wallet to DB:', e);
+      }
+    }
   };
 
   const handleForgotPassword = () => {
@@ -252,7 +318,7 @@ export default function App() {
     if (importWalletData) {
       setWalletData(importWalletData);
       setIsWalletUnlocked(true);
-      sessionStorage.setItem('pluto_session_active', 'true');
+      sessionStorage.setItem('xbyte_session_active', 'true');
       setView('wallet');
       setImportWalletData(null);
     }
@@ -270,7 +336,7 @@ export default function App() {
 
   const handleAdminLogout = () => {
     // Clear admin session
-    storage.remove('pluto_admin_session');
+    storage.remove('xbyte_admin_session');
     setView('adminLogin');
   };
 
@@ -287,7 +353,7 @@ export default function App() {
   const handleLogout = () => {
     // Lock the wallet and return to landing page
     setIsWalletUnlocked(false);
-    sessionStorage.removeItem('pluto_session_active');
+    sessionStorage.removeItem('xbyte_session_active');
     setView('landing');
   };
 
@@ -298,7 +364,8 @@ export default function App() {
       {view === 'landing' && (
         <LandingPage
           onGetStarted={() => setView('onboarding')}
-          onAccessWallet={() => walletData ? setView('unlock') : setView('onboarding')}
+          onAccessWallet={() => walletData ? setView('unlock') : setView('login')}
+          onImportWallet={() => setView('import-wallet')}
           onAdminAccess={() => setView('adminLogin')}
           isLoggedIn={isWalletUnlocked}
           userEmail={walletData?.email || ''}
@@ -308,6 +375,7 @@ export default function App() {
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
           onPrivacyClick={() => setView('privacy')}
+          onPageChange={(pageId) => setView(pageId as View)}
         />
       )}
 
@@ -318,11 +386,45 @@ export default function App() {
         />
       )}
 
+      {['p2p', 'market', 'explorer', 'api', 'blog', 'gateway', 'cards', 'trading', 'staking'].includes(view) && (
+        <LandingSubPage
+          pageId={view}
+          onPageChange={(pageId) => setView(pageId as View)}
+          onBack={() => setView('landing')}
+          darkMode={darkMode}
+          onToggleDarkMode={toggleDarkMode}
+          onGetStarted={() => setView('onboarding')}
+          onAccessWallet={() => walletData ? setView('unlock') : setView('login')}
+          onImportWallet={() => setView('import-wallet')}
+          onAdminAccess={() => setView('adminLogin')}
+          isLoggedIn={isWalletUnlocked}
+          userEmail={walletData?.email || ''}
+          onViewWallet={handleViewWallet}
+          onLogout={handleLogout}
+        />
+      )}
+
       {view === 'onboarding' && (
         <WalletOnboarding
           onComplete={handleWalletCreated}
           onBack={() => setView('landing')}
-          onImportAuth={handleImportWalletAuth}
+          onImportAuth={(data) => {
+            setImportWalletData(data);
+            setView('import-auth');
+          }}
+          initialMode="create"
+        />
+      )}
+
+      {view === 'import-wallet' && (
+        <WalletOnboarding
+          onComplete={handleWalletCreated}
+          onBack={() => setView('landing')}
+          onImportAuth={(data) => {
+            setImportWalletData(data);
+            setView('import-auth');
+          }}
+          initialMode="import"
         />
       )}
 
@@ -330,8 +432,9 @@ export default function App() {
         <UnlockWallet
           walletData={walletData}
           onUnlock={handleUnlockWallet}
-          onForgot={handleForgotPassword}
+          onForgot={() => setView('login')}
           onCreateNew={() => setView('onboarding')}
+          onImportExisting={() => setView('import-wallet')}
           onBackToLanding={() => setView('landing')}
         />
       )}
@@ -340,8 +443,9 @@ export default function App() {
         <UnlockWallet
           walletData={importWalletData}
           onUnlock={handleImportAuthSuccess}
-          onForgot={handleForgotPassword}
+          onForgot={() => setView('login')}
           onCreateNew={() => setView('onboarding')}
+          onImportExisting={() => setView('import-wallet')}
           onBackToLanding={handleImportAuthBack}
           isImporting={true}
         />
@@ -393,6 +497,19 @@ export default function App() {
           onBack={handleAdminLogout}
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
+        />
+      )}
+
+      {view === 'login' && (
+        <UserLogin
+          onLoginSuccess={(data) => {
+            setWalletData(data);
+            setIsWalletUnlocked(true);
+            setView('wallet');
+          }}
+          onBack={() => setView('landing')}
+          onGoToSignup={() => setView('onboarding')}
+          onLogoClick={handleLogoClick}
         />
       )}
 

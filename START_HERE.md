@@ -1,8 +1,8 @@
-# 🎉 WELCOME TO PLUTO WALLET!
+# 🎉 WELCOME TO XBYTE WALLET!
 
 ## 👋 Start Here - Your 5-Minute Quick Start
 
-You've successfully exported Pluto Wallet! This guide will get you running in **5 minutes**.
+You've successfully exported Xbyte Wallet! This guide will get you running in **5 minutes**.
 
 ---
 
@@ -10,7 +10,7 @@ You've successfully exported Pluto Wallet! This guide will get you running in **
 
 ```bash
 # 1. Open terminal in this folder
-cd pluto-wallet
+cd xbyte-wallet
 
 # 2. Install (takes 2-5 minutes)
 npm install
@@ -104,7 +104,7 @@ npm run android     # Open in Android Studio
 ## 🎮 Demo Credentials
 
 ### **Admin Dashboard:**
-- Email: `admin@pluto.io`
+- Email: `admin@xbyte.io`
 - Password: `Admin@123`
 
 ### **Test Wallet:**
@@ -215,7 +215,7 @@ Follow: [QUICK_START_NATIVE.md](QUICK_START_NATIVE.md)
 
 ## 🎓 What You're Building
 
-**Pluto Wallet** is a hybrid custodial/non-custodial cryptocurrency wallet with:
+**Xbyte Wallet** is a hybrid custodial/non-custodial cryptocurrency wallet with:
 
 ### **User Side:**
 - Multi-chain support (BTC, ETH, SOL, BNB, TRON)
@@ -431,6 +431,6 @@ Everything you need to build and launch a **professional cryptocurrency wallet**
 
 ---
 
-Made with ❤️ by the Pluto Wallet Team
+Made with ❤️ by the Xbyte Wallet Team
 
 </div>

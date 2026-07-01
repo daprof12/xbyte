@@ -1,4 +1,4 @@
-# 📋 Pluto Wallet - Complete File Manifest
+# 📋 Xbyte Wallet - Complete File Manifest
 
 ## 📦 Export Package Contents
 
@@ -223,7 +223,7 @@ All standard PWA icon sizes included:
 
 | File | Purpose |
 |------|---------|
-| **PlutoMultiChainWalletPrd.tsx** | Figma import |
+| **XbyteMultiChainWalletPrd.tsx** | Figma import |
 | **svg-yqnuw3xv95.ts** | SVG assets |
 
 ---

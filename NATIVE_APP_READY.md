@@ -1,8 +1,8 @@
-# 🎉 Pluto Wallet - Native App Conversion COMPLETE!
+# 🎉 Xbyte Wallet - Native App Conversion COMPLETE!
 
 ## ✅ What We Did
 
-I've successfully converted your Pluto Wallet's localStorage code to work across **Web, iOS, and Android**!
+I've successfully converted your Xbyte Wallet's localStorage code to work across **Web, iOS, and Android**!
 
 ---
 
@@ -164,8 +164,8 @@ npm install @capacitor/preferences
 
 # Initialize
 npx cap init
-# App name: Pluto Multi-Chain Wallet
-# App ID: com.plutowallet.app
+# App name: Xbyte Multi-Chain Wallet
+# App ID: com.xbytewallet.app
 
 # Add platforms
 npx cap add ios      # Mac only
@@ -407,7 +407,7 @@ npx cap open ios      # or android
 
 ## 🎊 You're Almost There!
 
-Your Pluto Wallet is **80% ready** for native deployment!
+Your Xbyte Wallet is **80% ready** for native deployment!
 
 **What's left:**
 - ⏳ Update remaining localStorage calls (2-4 hours)

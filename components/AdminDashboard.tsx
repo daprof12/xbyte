@@ -1,5 +1,7 @@
 import dataService from '../utils/dataService';
 import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabaseClient';
+import { useAdminUsers, useAdminFees, useAdminActivities, useAdminAuditLogs, useAdminTickets, useAdminChats } from '../hooks/useSupabaseData';
 import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, KeyRound, Moon, Sun, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -24,6 +26,7 @@ import { loadAssetConfig, saveAssetConfig, AssetConfig } from '../utils/assetCon
 import { fetchCryptoPrices } from '../utils/priceService';
 import { formatDecimal, formatPercentage, formatBalance } from '../utils/formatNumber';
 import MigrationPanel from './MigrationPanel';
+import AdminMessaging from './admin/AdminMessaging';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -35,6 +38,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [editCustomMessage, setEditCustomMessage] = useState('');
+  const [editCustomMessageEnabled, setEditCustomMessageEnabled] = useState(false);
   const [showEditBalance, setShowEditBalance] = useState(false);
   const [showUserActivities, setShowUserActivities] = useState(false);
   const [showTransactionReceipt, setShowTransactionReceipt] = useState(false);
@@ -58,7 +63,6 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [activeTab, setActiveTab] = useState('users');
   const [newUser, setNewUser] = useState({
     email: '',
-    phone: '',
     password: '',
     kyc_status: 'pending',
     balances: { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0' },
@@ -69,7 +73,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [adminProfile, setAdminProfile] = useState({
     name: 'Super Admin',
-    email: 'admin@pluto.io',
+    email: 'admin3@pluto.com',
     role: 'Super Admin'
   });
   const [passwordForm, setPasswordForm] = useState({
@@ -159,311 +163,38 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     return () => clearInterval(interval);
   }, [assetConfig]);
 
-  // Load users from localStorage or use default mock data
-  const loadUsers = () => {
-    const storedUsers = dataService.getItem('pluto_admin_users');
-    if (storedUsers) {
-      return JSON.parse(storedUsers);
-    }
-    // Default mock users if no stored data
-    return [
-      {
-        id: 'usr_001',
-        email: 'john@example.com',
-        phone: '+1234567890',
-        kyc_status: 'verified',
-        created_at: '2025-11-20T10:00:00Z',
-        last_login: '2025-11-27T08:30:00Z',
-        blocked: false,
-        balances: { BTC: '0.5', ETH: '10.0', SOL: '50.0', BNB: '5.0', USDT: '5000.00' },
-        addresses: { 
-          BTC: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-          ETH: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-          SOL: '7YpJ5x9nE4kBYmJmGKZhCvXBAPngXzFqPmgvT8KJnKvH',
-          BNB: 'bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23',
-          USDT: 'TJDENsfBJs4RFETt1X1W8wMDc8M5XnJhCe'
-        },
-        password: 'hashed_password_123',
-        passwordLastChanged: '2025-11-20T10:00:00Z',
-        twoFactorAuth: {
-          enabled: true,
-          preferredMethod: 'passcode',
-          passcode: '123456',
-          biometricEnabled: false,
-          biometricData: null,
-          setupDate: '2025-11-20T10:00:00Z'
-        },
-        failedLoginAttempts: 0,
-        accountLocked: false
-      },
-      {
-        id: 'usr_002',
-        email: 'sarah@example.com',
-        phone: '+9876543210',
-        kyc_status: 'pending',
-        created_at: '2025-11-25T14:20:00Z',
-        last_login: '2025-11-27T09:15:00Z',
-        blocked: false,
-        balances: { BTC: '0.1', ETH: '2.5', SOL: '15.0', BNB: '1.2', USDT: '1200.00' },
-        addresses: { 
-          BTC: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          ETH: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-          SOL: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-          BNB: 'bnb1grpf0955h0ykzq3ar5nmum7y6gdfl6lxfn46h2',
-          USDT: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'
-        },
-        password: 'hashed_password_456',
-        passwordLastChanged: '2025-11-25T14:20:00Z',
-        twoFactorAuth: {
-          enabled: true,
-          preferredMethod: 'biometric',
-          passcode: '789012',
-          biometricEnabled: true,
-          biometricData: 'simulated_biometric_hash_456',
-          setupDate: '2025-11-25T14:20:00Z'
-        },
-        failedLoginAttempts: 0,
-        accountLocked: false
-      },
-      {
-        id: 'usr_003',
-        email: 'mike@example.com',
-        phone: '+1122334455',
-        kyc_status: 'rejected',
-        created_at: '2025-11-22T11:30:00Z',
-        last_login: '2025-11-26T16:45:00Z',
-        blocked: true,
-        balances: { BTC: '0.05', ETH: '1.0', SOL: '5.0', BNB: '0.5', USDT: '500.00' },
-        addresses: { 
-          BTC: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
-          ETH: '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-          SOL: '9aXQSfCGWdvJLTcCfmWyTbKhKGmEwDLUQnpWsYi4r5aA',
-          BNB: 'bnb1jxfh2g85q3v0tdq56fnevx6xcxtcnhtsmcu64m',
-          USDT: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
-        },
-        password: 'hashed_password_789',
-        passwordLastChanged: null,
-        twoFactorAuth: {
-          enabled: false,
-          preferredMethod: null,
-          passcode: null,
-          biometricEnabled: false,
-          biometricData: null,
-          setupDate: null
-        },
-        failedLoginAttempts: 3,
-        accountLocked: true
-      }
-    ];
-  };
+  // Load users from Supabase DB
+  const { users, setUsers, loading: usersLoading, refetch: refetchUsers } = useAdminUsers();
 
-  const [users, setUsers] = useState(loadUsers());
+  // Load fees from Supabase DB
+  const { fees, setFees, loading: feesLoading } = useAdminFees();
 
-  // Load fees from localStorage or use defaults
-  const loadFees = () => {
-    const storedFees = dataService.getItem('pluto_admin_fees');
-    if (storedFees) {
-      return JSON.parse(storedFees);
-    }
-    return {
-      BTC: { 
-        withdraw_fee: '0.0005', 
-        percent: '0.5',
-        deposit_address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        deposit_enabled: true,
-        gas_fee_enabled: true,
-        gas_fee_type: 'fixed',
-        gas_fee_fixed: '0.00001',
-        gas_fee_percent: '0.1'
-      },
-      ETH: { 
-        withdraw_fee: '0.003', 
-        percent: '0.3',
-        deposit_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-        deposit_enabled: true,
-        gas_fee_enabled: true,
-        gas_fee_type: 'fixed',
-        gas_fee_fixed: '0.0015',
-        gas_fee_percent: '0.2'
-      },
-      SOL: { 
-        withdraw_fee: '0.001', 
-        percent: '0.2',
-        deposit_address: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-        deposit_enabled: true,
-        gas_fee_enabled: true,
-        gas_fee_type: 'fixed',
-        gas_fee_fixed: '0.000005',
-        gas_fee_percent: '0.15'
-      },
-      BNB: { 
-        withdraw_fee: '0.002', 
-        percent: '0.25',
-        deposit_address: 'bnb1grpf0955h0ykzq3ar5nmum7y6gdfl6lxfn46h2',
-        deposit_enabled: true,
-        gas_fee_enabled: true,
-        gas_fee_type: 'fixed',
-        gas_fee_fixed: '0.0008',
-        gas_fee_percent: '0.18'
-      },
-      USDT: { 
-        withdraw_fee: '1.0', 
-        percent: '0.1',
-        deposit_address: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9',
-        deposit_enabled: true,
-        gas_fee_enabled: true,
-        gas_fee_type: 'fixed',
-        gas_fee_fixed: '1.5',
-        gas_fee_percent: '0.25'
-      }
-    };
-  };
-
-  const [fees, setFees] = useState(loadFees());
-
-  // Persist fees to localStorage whenever they change
-  useEffect(() => {
-    dataService.setItem('pluto_admin_fees', JSON.stringify(fees));
-  }, [fees]);
-
-  // Load user activities from localStorage or use default mock data
-  const loadUserActivities = () => {
-    const storedActivities = dataService.getItem('pluto_user_activities');
-    if (storedActivities) {
-      return JSON.parse(storedActivities);
-    }
-    // Default mock activities if no stored data
-    return {
-      'usr_001': [
-        {
-          id: 'txn_001',
-          type: 'send',
-          asset: 'ETH',
-          amount: '0.5',
-          timestamp: '2025-11-27T10:30:00Z',
-          status: 'pending',
-          hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-          from: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-          fee: '0.002',
-          network: 'Ethereum Mainnet',
-          confirmations: 0,
-          requiredConfirmations: 12,
-          notes: ''
-        },
-      {
-        id: 'txn_002',
-        type: 'receive',
-        asset: 'BTC',
-        amount: '0.05',
-        timestamp: '2025-11-26T15:20:00Z',
-        status: 'processing',
-        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-        to: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-        from: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        fee: '0.0005',
-        network: 'Bitcoin Mainnet',
-        confirmations: 3,
-        requiredConfirmations: 6,
-        notes: ''
-      },
-      {
-        id: 'txn_003',
-        type: 'swap',
-        asset: 'SOL',
-        amount: '10.0',
-        toAsset: 'USDT',
-        toAmount: '983.20',
-        timestamp: '2025-11-25T09:15:00Z',
-        status: 'completed',
-        hash: '0x9876543210abcdef9876543210abcdef9876543210abcdef9876543210abcdef',
-        fee: '0.001',
-        network: 'Solana Mainnet',
-        confirmations: 32,
-        requiredConfirmations: 32,
-        notes: ''
-      },
-      {
-        id: 'txn_004',
-        type: 'buy',
-        asset: 'ETH',
-        amount: '2.0',
-        timestamp: '2025-11-24T14:00:00Z',
-        status: 'pending',
-        hash: '0xdef9876543210abcdef9876543210abcdef9876543210abcdef9876543210ab',
-        paymentMethod: 'Credit Card',
-        fiatAmount: '$6,841.50',
-        fiatCurrency: 'USD',
-        fee: '0.003',
-        network: 'Ethereum Mainnet',
-        notes: ''
-      },
-      {
-        id: 'txn_005',
-        type: 'deposit',
-        asset: 'USDT',
-        amount: '5000.00',
-        timestamp: '2025-11-23T10:00:00Z',
-        status: 'processing',
-        hash: '0x321fedcba9876543210fedcba9876543210fedcba9876543210fedcba987654',
-        to: 'TJDENsfBJs4RFETt1X1W8wMDc8M5XnJhCe',
-        from: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9',
-        fee: '1.0',
-        network: 'TRON (TRC20)',
-        confirmations: 15,
-        requiredConfirmations: 19,
-        notes: ''
-      }
-    ],
-    'usr_002': [
-      {
-        id: 'txn_006',
-        type: 'swap',
-        asset: 'BNB',
-        amount: '0.5',
-        toAsset: 'USDT',
-        toAmount: '157.80',
-        timestamp: '2025-11-27T11:00:00Z',
-        status: 'completed',
-        hash: '0xaaa111bbb222ccc333ddd444eee555fff666aaa777bbb888ccc999ddd000eee',
-        fee: '0.002',
-        network: 'BNB Smart Chain',
-        confirmations: 15,
-        requiredConfirmations: 15,
-        notes: ''
-      }
-      ],
-      'usr_003': []
-    };
-  };
-
-  const [userActivities, setUserActivities] = useState<{[key: string]: any[]}>(loadUserActivities());
+  // Load user activities from Supabase DB
+  const { activities: userActivities, setActivities: setUserActivities, loading: activitiesLoading, refetch: refetchActivities } = useAdminActivities();
 
   const getUserActivities = (userId: string) => userActivities[userId] || [];
   
-  // Update user activities and persist to localStorage
-  const updateUserActivities = (userId: string, activities: any[]) => {
-    const updatedActivities = {
-      ...userActivities,
-      [userId]: activities
-    };
+  // Update user activities
+  const updateUserActivities = async (userId: string, activities: any[]) => {
+    const updatedActivities = { ...userActivities, [userId]: activities };
     setUserActivities(updatedActivities);
-    dataService.setItem('pluto_user_activities', JSON.stringify(updatedActivities));
   };
   
   // Delete a specific transaction
-  const handleDeleteTransaction = (userId: string, transactionId: string) => {
+  const handleDeleteTransaction = async (userId: string, transactionId: string) => {
     if (confirm('Are you sure you want to delete this transaction?')) {
+      await supabase.from('transactions').delete().eq('id', transactionId);
       const userTransactions = getUserActivities(userId);
-      const updatedTransactions = userTransactions.filter(tx => tx.id !== transactionId);
+      const updatedTransactions = userTransactions.filter((tx: any) => tx.id !== transactionId);
       updateUserActivities(userId, updatedTransactions);
     }
   };
   
   // Update transaction status
-  const handleUpdateTransactionStatus = (userId: string, transactionId: string, newStatus: string) => {
+  const handleUpdateTransactionStatus = async (userId: string, transactionId: string, newStatus: string) => {
+    await supabase.from('transactions').update({ status: newStatus }).eq('id', transactionId);
     const userTransactions = getUserActivities(userId);
-    const updatedTransactions = userTransactions.map(tx => 
+    const updatedTransactions = userTransactions.map((tx: any) => 
       tx.id === transactionId ? { ...tx, status: newStatus } : tx
     );
     updateUserActivities(userId, updatedTransactions);
@@ -472,88 +203,71 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   // Calculate total balance in USD
   const calculateTotalBalance = (balances: any) => {
     let total = 0;
-    Object.entries(balances).forEach(([asset, balance]) => {
-      const price = prices[asset as keyof typeof prices] || 0;
-      total += parseFloat(balance as string) * price;
-    });
+    if (balances) {
+      Object.entries(balances).forEach(([asset, balance]) => {
+        const price = prices[asset as keyof typeof prices] || 0;
+        total += parseFloat(balance as string) * price;
+      });
+    }
     return total;
   };
 
   // Calculate total platform assets
   const calculatePlatformAssets = () => {
     const totals: any = {};
-    assetConfig.forEach(asset => {
-      totals[asset.symbol] = {
-        total: 0,
-        users: 0,
-        value: 0
-      };
+    assetConfig.forEach((asset: any) => {
+      totals[asset.symbol] = { total: 0, users: 0, value: 0 };
     });
 
-    users.forEach(user => {
-      Object.entries(user.balances).forEach(([asset, balance]) => {
-        if (totals[asset]) {
-          totals[asset].total += parseFloat(balance as string);
-          if (parseFloat(balance as string) > 0) {
-            totals[asset].users += 1;
+    users.forEach((user: any) => {
+      if (user.balances) {
+        Object.entries(user.balances).forEach(([asset, balance]) => {
+          if (totals[asset]) {
+            totals[asset].total += parseFloat(balance as string);
+            if (parseFloat(balance as string) > 0) totals[asset].users += 1;
+            totals[asset].value += parseFloat(balance as string) * prices[asset as keyof typeof prices];
           }
-          totals[asset].value += parseFloat(balance as string) * prices[asset as keyof typeof prices];
-        }
-      });
+        });
+      }
     });
 
     return totals;
   };
 
-  // Load support tickets from localStorage
-  const [tickets, setTickets] = useState<any[]>([]);
-
-  // Load tickets on mount and refresh periodically
-  useEffect(() => {
-    const loadTickets = () => {
-      const storedTickets = dataService.getItem('pluto_support_tickets');
-      if (storedTickets) {
-        setTickets(JSON.parse(storedTickets));
-      }
-    };
-
-    loadTickets();
-
-    // Refresh every 2 seconds to sync with user submissions
-    const interval = setInterval(loadTickets, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  // Load support tickets from Supabase
+  const { tickets, setTickets, loading: ticketsLoading } = useAdminTickets();
 
   // Handle ticket status change
-  const handleTicketStatusChange = (ticketId: string, newStatus: string) => {
-    const updatedTickets = tickets.map(ticket => {
+  const handleTicketStatusChange = async (ticketId: string, newStatus: string) => {
+    const dbStatus = newStatus === 'in-progress' ? 'in_progress' : newStatus;
+    await supabase.from('support_tickets').update({ status: dbStatus }).eq('id', ticketId);
+    const updatedTickets = tickets.map((ticket: any) => {
       if (ticket.id === ticketId) {
-        return {
-          ...ticket,
-          status: newStatus,
-          updated: new Date().toISOString()
-        };
+        return { ...ticket, status: newStatus, updated: new Date().toISOString() };
       }
       return ticket;
     });
-
     setTickets(updatedTickets);
-    dataService.setItem('pluto_support_tickets', JSON.stringify(updatedTickets));
-
-    // Update user's local tickets
-    const ticket = updatedTickets.find(t => t.id === ticketId);
-    if (ticket && ticket.userId) {
-      const userTickets = JSON.parse(dataService.getItem(`pluto_tickets_${ticket.userId}`) || '[]');
-      const userUpdatedTickets = userTickets.map((t: any) => t.id === ticketId ? ticket : t);
-      dataService.setItem(`pluto_tickets_${ticket.userId}`, JSON.stringify(userUpdatedTickets));
-    }
   };
 
   // Handle admin reply to ticket
-  const handleAdminReply = (ticketId: string, message: string) => {
+  const handleAdminReply = async (ticketId: string, message: string) => {
     if (!message.trim()) return;
 
-    const updatedTickets = tickets.map(ticket => {
+    // Update ticket status to in_progress in Supabase
+    await supabase
+      .from('support_tickets')
+      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+
+    // Insert reply message
+    await supabase.from('support_ticket_messages').insert({
+        ticket_id: ticketId,
+        message: message.trim(),
+        is_admin_reply: true
+    });
+
+    const updatedTickets = tickets.map((ticket: any) => {
       if (ticket.id === ticketId) {
         const newMessage = {
           sender: 'admin',
@@ -561,94 +275,71 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
           message: message.trim(),
           timestamp: new Date().toISOString()
         };
-
-        return {
-          ...ticket,
-          updated: new Date().toISOString(),
-          messages: [...ticket.messages, newMessage]
+        return { 
+          ...ticket, 
+          status: 'in_progress',
+          updated: new Date().toISOString(), 
+          messages: [...(ticket.messages || []), newMessage] 
         };
       }
       return ticket;
     });
-
     setTickets(updatedTickets);
-    dataService.setItem('pluto_support_tickets', JSON.stringify(updatedTickets));
-
-    // Update user's local tickets
-    const ticket = updatedTickets.find(t => t.id === ticketId);
-    if (ticket && ticket.userId) {
-      const userTickets = JSON.parse(dataService.getItem(`pluto_tickets_${ticket.userId}`) || '[]');
-      const userUpdatedTickets = userTickets.map((t: any) => t.id === ticketId ? ticket : t);
-      dataService.setItem(`pluto_tickets_${ticket.userId}`, JSON.stringify(userUpdatedTickets));
-    }
-
     setTicketResponse('');
   };
 
-  // Load live chats from localStorage
-  const [chats, setChats] = useState<any[]>([]);
+  // Load live chats from Supabase
+  const { chats, setChats, loading: chatsLoading } = useAdminChats();
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
 
-  // Load chats from localStorage
-  useEffect(() => {
-    const loadChats = () => {
-      const storedChats = dataService.getItem('pluto_live_chats');
-      if (storedChats) {
-        setChats(JSON.parse(storedChats));
-      }
-    };
-
-    loadChats();
-    
-    // Auto-refresh chats every 2 seconds
-    const interval = setInterval(loadChats, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load audit logs from localStorage or use defaults
-  const loadAuditLogs = () => {
-    const storedLogs = dataService.getItem('pluto_admin_audit_logs');
-    if (storedLogs) {
-      return JSON.parse(storedLogs);
-    }
-    return [
-      {
-        id: 1,
-        admin: 'admin@pluto.io',
-        action: 'User Balance Adjustment',
-        details: 'Increased ETH balance for usr_001 by 5.0',
-        timestamp: '2025-11-27T10:30:00Z',
-        ip: '192.168.1.1'
-      },
-      {
-        id: 2,
-        admin: 'support@pluto.io',
-        action: 'User Blocked',
-        details: 'Blocked user usr_003 - Suspicious activity',
-        timestamp: '2025-11-27T09:15:00Z',
-        ip: '192.168.1.2'
-      },
-      {
-        id: 3,
-        admin: 'admin@pluto.io',
-        action: 'Fee Update',
-        details: 'Updated BTC withdrawal fee to 0.0005',
-        timestamp: '2025-11-27T08:00:00Z',
-        ip: '192.168.1.1'
-      }
-    ];
-  };
-
-  const [auditLogs, setAuditLogs] = useState(loadAuditLogs());
+  // Load audit logs from Supabase
+  const { logs: auditLogs, setLogs: setAuditLogs, loading: logsLoading } = useAdminAuditLogs();
 
   // Persist audit logs to localStorage whenever they change
   useEffect(() => {
-    dataService.setItem('pluto_admin_audit_logs', JSON.stringify(auditLogs));
+    dataService.setItem('xbyte_admin_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
   const handleViewDetails = (user: any) => {
     setSelectedUser(user);
+    setEditCustomMessage(user.customMessage || '');
+    setEditCustomMessageEnabled(user.customMessageEnabled || false);
     setShowUserDetails(true);
+  };
+
+  const handleSaveCustomMessage = () => {
+    if (!selectedUser) return;
+    const updatedUser = { 
+      ...selectedUser, 
+      customMessage: editCustomMessage, 
+      customMessageEnabled: editCustomMessageEnabled 
+    };
+    const updatedUsers = users.map((u: any) => u.id === selectedUser.id ? updatedUser : u);
+    setUsers(updatedUsers);
+    dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+    setSelectedUser(updatedUser);
+
+    // Sync to Supabase metadata
+    const newMetadata = {
+      kyc_status: selectedUser.kyc_status || 'pending',
+      balances: selectedUser.balances || {},
+      addresses: selectedUser.addresses || {},
+      twoFactorAuth: selectedUser.twoFactorAuth || {},
+      customMessage: editCustomMessage,
+      customMessageEnabled: editCustomMessageEnabled
+    };
+
+    supabase
+      .from('users')
+      .update({ metadata: newMetadata })
+      .eq('id', selectedUser.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating user metadata in Supabase:', error.message);
+        }
+      });
+
+    alert('Custom message updated successfully!');
   };
 
   const handleEditBalance = (user: any) => {
@@ -665,18 +356,43 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   };
 
   const handleBlockUser = (userId: string) => {
-    const updatedUsers = users.map(u => u.id === userId ? { ...u, blocked: !u.blocked } : u);
+    const userToUpdate = users.find(u => u.id === userId);
+    if (!userToUpdate) return;
+    const newBlocked = !userToUpdate.blocked;
+    const newStatus = newBlocked ? 'blocked' : 'active';
+
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, blocked: newBlocked, status: newStatus } : u);
     setUsers(updatedUsers);
-    // Persist to localStorage
-    dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+    dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+    // Sync status update to Supabase
+    supabase
+      .from('users')
+      .update({ status: newStatus })
+      .eq('id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating user status in Supabase:', error.message);
+        }
+      });
   };
 
   const handleDeleteUser = (userId: string) => {
     if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       const updatedUsers = users.filter(u => u.id !== userId);
       setUsers(updatedUsers);
-      // Persist to localStorage
-      dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+      dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+      // Sync delete to Supabase (cascades automatically depending on foreign keys)
+      supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error deleting user from Supabase:', error.message);
+          }
+        });
     }
   };
 
@@ -733,7 +449,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         
         const transaction = {
           id: `txn_${Date.now()}_${asset}_${Math.random().toString(16).substring(2, 10)}`,
-          type: difference > 0 ? 'admin_credit' : 'admin_debit',
+          type: difference > 0 ? 'credit' : 'debit',
           asset: asset,
           amount: formatDecimal(Math.abs(difference)),
           timestamp: new Date().toISOString(),
@@ -760,10 +476,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     setUsers(updatedUsers);
     
     // Persist to localStorage
-    dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+    dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
     
     // CRITICAL: Sync balance changes to user's wallet if they're currently logged in
-    const userWallet = dataService.getItem('pluto_wallet');
+    const userWallet = dataService.getItem('xbyte_wallet');
     if (userWallet) {
       const walletData = JSON.parse(userWallet);
       // Check if the updated user is the currently logged in user
@@ -779,7 +495,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
           addresses: editAddresses,
           transactions: updatedTransactions
         };
-        dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+        dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
         
         // Dispatch custom event to notify user wallet to refresh (same-tab updates)
         window.dispatchEvent(new CustomEvent('walletDataUpdated', {
@@ -788,7 +504,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         
         // Also dispatch storage event for cross-tab updates
         window.dispatchEvent(new StorageEvent('storage', {
-          key: 'pluto_wallet',
+          key: 'xbyte_wallet',
           newValue: JSON.stringify(updatedWallet),
           oldValue: userWallet,
           storageArea: localStorage,
@@ -799,13 +515,128 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     
     // Update admin user activities with new transactions
     if (balanceChangeTransactions.length > 0) {
-      const userActivities = JSON.parse(dataService.getItem('pluto_user_activities') || '{}');
+      const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities') || '{}');
       if (!userActivities[selectedUser.id]) {
         userActivities[selectedUser.id] = [];
       }
       userActivities[selectedUser.id].push(...balanceChangeTransactions);
-      dataService.setItem('pluto_user_activities', JSON.stringify(userActivities));
+      dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
     }
+
+    // Sync to Supabase database in background
+    (async () => {
+      try {
+        // 1. Always update users table metadata (balances + addresses + custom message)
+        const updatedMetadata = {
+          kyc_status: selectedUser.kyc_status || 'pending',
+          balances: editBalances,
+          addresses: editAddresses,
+          twoFactorAuth: selectedUser.twoFactorAuth || {},
+          customMessage: selectedUser.customMessage || '',
+          customMessageEnabled: selectedUser.customMessageEnabled || false
+        };
+        
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({
+            wallet_address: editAddresses,
+            metadata: updatedMetadata
+          })
+          .eq('id', selectedUser.id);
+        
+        if (userUpdateError) {
+          console.error('Error updating users table:', userUpdateError.message);
+        }
+
+        // 2. Find or create wallet row
+        let { data: wallet } = await supabase
+          .from('wallets')
+          .select('id')
+          .eq('user_id', selectedUser.id)
+          .eq('is_primary', true)
+          .maybeSingle();
+
+        if (!wallet) {
+          // Auto-create a wallet row for this user
+          const { data: newWallet, error: createError } = await supabase
+            .from('wallets')
+            .insert({
+              user_id: selectedUser.id,
+              name: 'Main Wallet',
+              mnemonic_encrypted: '',
+              encryption_salt: selectedUser.id,
+              is_primary: true
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('Error creating wallet row:', createError.message);
+            return;
+          }
+          wallet = newWallet;
+        }
+
+        const walletId = wallet.id;
+        const { data: assets } = await supabase.from('assets').select('id, symbol');
+        if (!assets) return;
+
+        // 3. Sync balances in wallet_balances
+        for (const [symbol, balance] of Object.entries(editBalances)) {
+          const asset = assets.find(a => a.symbol === symbol);
+          if (asset) {
+            await supabase.from('wallet_balances').upsert({
+              wallet_id: walletId,
+              asset_id: asset.id,
+              balance: parseFloat(balance as string) || 0
+            }, { onConflict: 'wallet_id,asset_id' });
+          }
+        }
+
+        // 4. Sync addresses in wallet_addresses
+        for (const [symbol, address] of Object.entries(editAddresses)) {
+          const asset = assets.find(a => a.symbol === symbol);
+          if (asset && address) {
+            await supabase.from('wallet_addresses').upsert({
+              wallet_id: walletId,
+              asset_id: asset.id,
+              address: address as string,
+              is_primary: true
+            }, { onConflict: 'wallet_id,asset_id,address' });
+          }
+        }
+
+        // 5. Sync new transactions to transactions table
+        if (balanceChangeTransactions.length > 0) {
+          for (const tx of balanceChangeTransactions) {
+            const asset = assets.find(a => a.symbol === tx.asset);
+            await supabase
+              .from('transactions')
+              .insert({
+                wallet_id: walletId,
+                user_id: selectedUser.id,
+                type: tx.type,
+                status: tx.status,
+                asset_id: asset?.id || null,
+                asset_symbol: tx.asset,
+                amount: parseFloat(tx.amount) || 0,
+                from_address: tx.from || null,
+                to_address: tx.to || null,
+                network: tx.network || '',
+                hash: tx.hash,
+                fee: tx.fee ? parseFloat(tx.fee) : 0,
+                notes: tx.notes || ''
+              });
+          }
+        }
+
+        console.log('✅ Admin balance/address update synced to Supabase for user:', selectedUser.id);
+        // Re-fetch activities from DB to ensure admin sees latest data
+        refetchActivities();
+      } catch (err) {
+        console.error('Error syncing admin update to Supabase:', err);
+      }
+    })();
     
     setShowEditBalance(false);
     setSelectedUser(null);
@@ -831,10 +662,18 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const handleUpdateLoginDetails = () => {
     const updatedUser = { ...selectedUser };
 
-    // Update password if new password is provided
+    // Update password if new password is provided (local state only, password changes happen via GoTrue reset/client)
     if (editLoginData.newPassword && editLoginData.newPassword === editLoginData.confirmPassword) {
       updatedUser.password = editLoginData.newPassword;
       updatedUser.passwordLastChanged = new Date().toISOString();
+    }
+
+    // Validate 4-digit passcode if passcode method is selected and enabled
+    if (editLoginData.twoFactorEnabled && editLoginData.twoFactorMethod === 'passcode') {
+      if (!editLoginData.passcode || editLoginData.passcode.length !== 4) {
+        alert('Passcode must be exactly 4 digits');
+        return;
+      }
     }
 
     // Update 2FA settings
@@ -851,10 +690,34 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     updatedUser.accountLocked = editLoginData.accountLocked;
     updatedUser.failedLoginAttempts = editLoginData.failedLoginAttempts;
 
-    setUsers(users.map(u => u.id === selectedUser.id ? updatedUser : u));
+    // Update local state and storage
+    const updatedUsers = users.map(u => u.id === selectedUser.id ? updatedUser : u);
+    setUsers(updatedUsers);
+    dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+    // Sync to Supabase in background
+    const newMetadata = {
+      kyc_status: selectedUser.kyc_status || 'pending',
+      balances: selectedUser.balances || {},
+      addresses: selectedUser.addresses || {},
+      twoFactorAuth: updatedUser.twoFactorAuth,
+      customMessage: selectedUser.customMessage || '',
+      customMessageEnabled: selectedUser.customMessageEnabled || false
+    };
+
+    supabase
+      .from('users')
+      .update({ metadata: newMetadata })
+      .eq('id', selectedUser.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating user login details in Supabase:', error.message);
+        }
+      });
+
     setShowLoginDetailsEdit(false);
     setSelectedUser(null);
-    alert('Login details updated successfully!');
+    alert('Login & 2FA details updated successfully!');
   };
 
   const handleResetPassword = () => {
@@ -894,7 +757,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     }
 
     const response = {
-      admin: 'admin@pluto.io',
+      admin: 'admin3@pluto.com',
       message: ticketResponse,
       timestamp: new Date().toISOString()
     };
@@ -928,7 +791,6 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     console.log('Sending notification:', {
       method: notificationMethod,
       email: ticket.user_email,
-      phone: ticket.user_phone,
       subject: `Update on your ticket: ${ticket.subject}`,
       message: message
     });
@@ -945,46 +807,58 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     ));
   };
 
-  const handleSendChatMessage = () => {
+  const handleSendChatMessage = async () => {
     if (!chatMessage.trim() || !selectedChat) return;
 
-    const newMessage = {
-      sender: 'admin',
-      senderName: adminProfile.username || 'Support Team',
-      message: chatMessage,
-      timestamp: new Date().toISOString()
-    };
+    const msgText = chatMessage.trim();
+    setChatMessage('');
 
-    const updatedChat = {
-      ...selectedChat,
-      messages: [...(selectedChat.messages || []), newMessage],
-      updated: new Date().toISOString()
-    };
+    const { error } = await supabase.from('live_chat_messages').insert({
+      chat_id: selectedChat.id,
+      message: msgText,
+      is_admin: true
+    });
 
-    // Update local state
-    const updatedChats = chats.map(c => 
-      c.id === selectedChat.id ? updatedChat : c
-    );
-    setChats(updatedChats);
-    setSelectedChat(updatedChat);
+    if (error) {
+      console.error('Error sending chat message from admin:', error.message);
+      alert('Failed to send live chat message.');
+      return;
+    }
 
-    // Save to localStorage
-    dataService.setItem('pluto_live_chats', JSON.stringify(updatedChats));
+    // Refresh chat messages
+    const { data: messagesData } = await supabase
+      .from('live_chat_messages')
+      .select('*')
+      .eq('chat_id', selectedChat.id)
+      .order('created_at', { ascending: true });
+
+    if (messagesData) {
+      const mappedMessages = messagesData.map((m: any) => ({
+        sender: m.is_admin ? 'admin' : 'user',
+        senderName: m.is_admin ? 'Support Agent' : (selectedChat.userName || 'User'),
+        message: m.message,
+        timestamp: m.created_at
+      }));
+
+      const updatedChat = {
+        ...selectedChat,
+        messages: mappedMessages,
+        updated: new Date().toISOString()
+      };
+
+      setChats(chats.map(c => c.id === selectedChat.id ? updatedChat : c));
+      setSelectedChat(updatedChat);
+    }
 
     // Simulate WhatsApp/Telegram notification
-    console.log(`📱 WhatsApp notification sent to ${selectedChat.userEmail || selectedChat.user_email}: "${chatMessage}"`);
+    console.log(`📱 WhatsApp notification sent to ${selectedChat.userEmail || selectedChat.user_email}: "${msgText}"`);
 
     setChatMessage('');
   };
 
   const sendChatToIntegration = (chat: any, message: string) => {
     // This would integrate with WhatsApp Business API or Telegram Bot API
-    if (chat.whatsapp_connected) {
-      console.log('Sending to WhatsApp:', {
-        phone: chat.user_phone,
-        message: message
-      });
-    }
+
     if (chat.telegram_connected) {
       console.log('Sending to Telegram:', {
         user: chat.user_email,
@@ -995,8 +869,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
   const handleCreateUser = () => {
     // Validate required fields
-    if (!newUser.email || !newUser.phone || !newUser.password) {
-      alert('Please fill in all required fields: Email, Phone, and Password');
+    if (!newUser.email || !newUser.password) {
+      alert('Please fill in all required fields: Email and Password');
       return;
     }
 
@@ -1005,9 +879,6 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       alert('Please fix invalid addresses before creating user');
       return;
     }
-
-    // Generate user ID
-    const userId = `usr_${String(users.length + 1).padStart(3, '0')}`;
     
     // Auto-generate any missing addresses
     const finalAddresses = { ...newUser.addresses };
@@ -1016,40 +887,63 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         finalAddresses[asset] = generateRandomAddress(asset);
       }
     });
-    
-    // Create new user object
-    const userToCreate = {
-      id: userId,
-      email: newUser.email,
-      phone: newUser.phone,
-      kyc_status: newUser.kyc_status,
-      created_at: new Date().toISOString(),
-      last_login: new Date().toISOString(),
-      blocked: false,
-      balances: newUser.balances,
-      addresses: finalAddresses
-    };
 
-    // Add to users array
-    const updatedUsers = [...users, userToCreate];
-    setUsers(updatedUsers);
-    
-    // Persist to localStorage
-    dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+    // Call Supabase RPC to create user in Auth and DB
+    (async () => {
+      try {
+        const { data: newUserId, error: createError } = await supabase.rpc('admin_create_user', {
+          p_email: newUser.email,
+          p_password: newUser.password,
+          p_kyc_status: newUser.kyc_status,
+          p_balances: newUser.balances,
+          p_addresses: finalAddresses
+        });
 
-    // Reset form and close modal
-    setNewUser({
-      email: '',
-      phone: '',
-      password: '',
-      kyc_status: 'pending',
-      balances: { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0' },
-      addresses: { BTC: '', ETH: '', SOL: '', BNB: '', USDT: '' }
-    });
-    setNewUserAddressErrors({});
-    setShowCreateUser(false);
+        if (createError) {
+          console.error('Error creating user in Supabase:', createError.message);
+          alert(`Error creating user: ${createError.message}`);
+          return;
+        }
 
-    alert(`User created successfully!\n\nUser ID: ${userId}\nEmail: ${newUser.email}\nPassword: ${newUser.password}\n\nPlease save these credentials securely.`);
+        console.log('✅ User created successfully in Supabase. ID:', newUserId);
+        
+        // Create new user object with the real UUID
+        const userToCreate = {
+          id: newUserId,
+          email: newUser.email,
+          kyc_status: newUser.kyc_status,
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString(),
+          blocked: false,
+          balances: newUser.balances,
+          addresses: finalAddresses,
+          role: 'user'
+        };
+
+        // Add to users array
+        const updatedUsers = [...users, userToCreate];
+        setUsers(updatedUsers);
+        
+        // Persist to localStorage
+        dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+        // Reset form and close modal
+        setNewUser({
+          email: '',
+          password: '',
+          kyc_status: 'pending',
+          balances: { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0' },
+          addresses: { BTC: '', ETH: '', SOL: '', BNB: '', USDT: '' }
+        });
+        setNewUserAddressErrors({});
+        setShowCreateUser(false);
+
+        alert(`User created successfully!\n\nEmail: ${newUser.email}\nPassword: ${newUser.password}\n\nPlease save these credentials securely.`);
+      } catch (err) {
+        console.error('Failed to create user in Supabase:', err);
+        alert('Failed to create user in database.');
+      }
+    })();
   };
 
   const generateRandomAddress = (asset: string) => {
@@ -1096,13 +990,31 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     // Log activity
     const activity = {
       id: auditLogs.length + 1,
-      admin: 'admin@pluto.io',
+      admin: 'admin3@pluto.com',
       action: 'Fee Update',
       details: `Updated ${asset} withdrawal fee and deposit settings`,
       timestamp: new Date().toISOString(),
       ip: '192.168.1.1'
     };
     setAuditLogs([activity, ...auditLogs]);
+
+    // Sync to Supabase
+    supabase
+      .from('admin_fee_settings')
+      .update({
+        withdraw_fee: parseFloat(updatedFee.withdraw_fee) || 0,
+        withdraw_fee_percent: parseFloat(updatedFee.percent) || 0,
+        gas_fee_enabled: updatedFee.gas_fee_enabled,
+        gas_fee_type: updatedFee.gas_fee_type,
+        gas_fee_fixed: parseFloat(updatedFee.gas_fee_fixed) || 0,
+        gas_fee_percent: parseFloat(updatedFee.gas_fee_percent) || 0
+      })
+      .eq('asset_symbol', asset)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating fee settings in Supabase:', error.message);
+        }
+      });
 
     // Close modal
     setEditingFee(null);
@@ -1195,7 +1107,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       setFees(newFees);
       
       // Store fees in localStorage
-      dataService.setItem('pluto_admin_fees', JSON.stringify(newFees));
+      dataService.setItem('xbyte_admin_fees', JSON.stringify(newFees));
       
       // Remove from localStorage prices
       dataService.removeItem(`price_${symbol}`);
@@ -1215,10 +1127,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       setUsers(updatedUsers);
       
       // Update users in localStorage
-      dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+      dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
       
       // Update current wallet if exists
-      const currentWallet = dataService.getItem('pluto_wallet');
+      const currentWallet = dataService.getItem('xbyte_wallet');
       if (currentWallet) {
         try {
           const walletData = JSON.parse(currentWallet);
@@ -1232,7 +1144,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
             balances: newBalances,
             addresses: newAddresses
           };
-          dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
           
           // Dispatch event to notify wallet components
           window.dispatchEvent(new CustomEvent('walletUpdated', {
@@ -1298,7 +1210,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         setFees(newFees);
         
         // Store fees in localStorage
-        dataService.setItem('pluto_admin_fees', JSON.stringify(newFees));
+        dataService.setItem('xbyte_admin_fees', JSON.stringify(newFees));
         
         // Update all users' balances and addresses
         const updatedUsers = users.map(user => {
@@ -1322,10 +1234,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
           };
         });
         setUsers(updatedUsers);
-        dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+        dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
         
         // Update current wallet if exists
-        const currentWallet = dataService.getItem('pluto_wallet');
+        const currentWallet = dataService.getItem('xbyte_wallet');
         if (currentWallet) {
           try {
             const walletData = JSON.parse(currentWallet);
@@ -1347,7 +1259,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
               balances: newBalances,
               addresses: newAddresses
             };
-            dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+            dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
             
             // Dispatch event to notify wallet components
             window.dispatchEvent(new CustomEvent('walletUpdated', {
@@ -1394,7 +1306,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       setFees(newFees);
       
       // Store fees in localStorage
-      dataService.setItem('pluto_admin_fees', JSON.stringify(newFees));
+      dataService.setItem('xbyte_admin_fees', JSON.stringify(newFees));
       
       // Add to all users with 0 balance
       const updatedUsers = users.map(user => ({
@@ -1405,10 +1317,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       setUsers(updatedUsers);
       
       // Update users in localStorage
-      dataService.setItem('pluto_admin_users', JSON.stringify(updatedUsers));
+      dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
       
       // Update current logged-in user's wallet if exists
-      const currentWallet = dataService.getItem('pluto_wallet');
+      const currentWallet = dataService.getItem('xbyte_wallet');
       if (currentWallet) {
         try {
           const walletData = JSON.parse(currentWallet);
@@ -1417,7 +1329,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
             balances: { ...walletData.balances, [symbol]: '0' },
             addresses: { ...walletData.addresses, [symbol]: generateRandomAddress(symbol) }
           };
-          dataService.setItem('pluto_wallet', JSON.stringify(updatedWallet));
+          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
           
           // Dispatch event to notify wallet components
           window.dispatchEvent(new CustomEvent('walletUpdated', {
@@ -1454,19 +1366,72 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     setEditingTransaction(false);
   };
 
-  const handleUpdateTransaction = (userId: string, updatedTransaction: any) => {
+  const handleUpdateTransaction = async (userId: string, updatedTransaction: any) => {
+    // 1. Sync updated transaction details to Supabase
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        type: updatedTransaction.type,
+        status: updatedTransaction.status,
+        asset_symbol: updatedTransaction.asset,
+        amount: parseFloat(updatedTransaction.amount) || 0,
+        from_address: updatedTransaction.from || null,
+        to_address: updatedTransaction.to || null,
+        network: updatedTransaction.network || '',
+        hash: updatedTransaction.hash,
+        fee: parseFloat(updatedTransaction.fee) || 0,
+        notes: updatedTransaction.notes || ''
+      })
+      .eq('id', updatedTransaction.id);
+
+    if (error) {
+      console.error('Error updating transaction in Supabase:', error.message);
+      alert(`Error saving transaction edits in database: ${error.message}`);
+      return;
+    }
+
+    // 2. Update local state
     const updatedActivities = {
       ...userActivities,
-      [userId]: userActivities[userId].map(txn =>
+      [userId]: (userActivities[userId] || []).map(txn =>
         txn.id === updatedTransaction.id ? updatedTransaction : txn
       )
     };
     setUserActivities(updatedActivities);
-    dataService.setItem('pluto_user_activities', JSON.stringify(updatedActivities));
+    
+    // 3. Sync updated transaction to user's localStorage wallet so user sees changes immediately
+    const userWallet = dataService.getItem('xbyte_wallet');
+    if (userWallet) {
+      try {
+        const walletData = JSON.parse(userWallet);
+        if (walletData.id === userId) {
+          const updatedTransactions = (walletData.transactions || []).map((tx: any) =>
+            tx.id === updatedTransaction.id ? updatedTransaction : tx
+          );
+          const updatedWallet = { ...walletData, transactions: updatedTransactions };
+          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+          
+          // Notify user wallet in same tab
+          window.dispatchEvent(new CustomEvent('walletDataUpdated', {
+            detail: { walletData: updatedWallet }
+          }));
+          // Notify user wallet in other tabs
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: 'xbyte_wallet',
+            newValue: JSON.stringify(updatedWallet),
+            oldValue: userWallet,
+            storageArea: localStorage,
+            url: window.location.href
+          }));
+        }
+      } catch (e) {
+        console.error('Error syncing transaction update to user wallet:', e);
+      }
+    }
     
     setSelectedTransaction(updatedTransaction);
     setEditingTransaction(false);
-    alert('Transaction updated successfully!');
+    alert('Transaction updated successfully in database!');
   };
 
   const getStatusColor = (status: string) => {
@@ -1509,7 +1474,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
               <Logo size="sm" showText={false} onClick={onBack} />
               <div>
                 <h1 className="text-2xl text-gray-900 dark:text-white">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pluto Wallet Management</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Xbyte Wallet Management</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -1602,6 +1567,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 <SelectItem value="users">User Management</SelectItem>
                 <SelectItem value="assets">Assets Overview</SelectItem>
                 <SelectItem value="fees">Fee Settings</SelectItem>
+                <SelectItem value="messages">Message Settings</SelectItem>
                 <SelectItem value="support">
                   Support Tickets
                   {tickets.filter(t => t.status === 'open').length > 0 && ` (${tickets.filter(t => t.status === 'open').length})`}
@@ -1621,6 +1587,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
             <TabsTrigger value="users">User Management</TabsTrigger>
             <TabsTrigger value="assets">Assets Overview</TabsTrigger>
             <TabsTrigger value="fees">Fee Settings</TabsTrigger>
+            <TabsTrigger value="messages">Message Settings</TabsTrigger>
             <TabsTrigger value="support">
               <div className="flex items-center gap-2">
                 Support Tickets
@@ -2066,6 +2033,11 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 </p>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Message Settings Tab */}
+          <TabsContent value="messages">
+            <AdminMessaging users={users} />
           </TabsContent>
 
           {/* Support Tickets Tab */}
@@ -2522,10 +2494,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Email</p>
                   <p className="text-sm text-gray-900 dark:text-white">{selectedUser.email}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Phone</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{selectedUser.phone}</p>
-                </div>
+
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">KYC Status</p>
                   <Badge
@@ -2654,6 +2623,50 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Custom Message Section */}
+            <div className="mb-6">
+              <h3 className="text-lg text-gray-900 dark:text-white mb-4">User Restrictions & Custom Message</h3>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Enable Custom Message</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Show this message when the user attempts to withdraw or swap assets.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editCustomMessageEnabled}
+                      onChange={(e) => setEditCustomMessageEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+                {editCustomMessageEnabled && (
+                  <div>
+                    <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
+                      Message Content
+                    </label>
+                    <textarea
+                      value={editCustomMessage}
+                      onChange={(e) => setEditCustomMessage(e.target.value)}
+                      placeholder="e.g., Your account requires further verification before withdrawing funds."
+                      className="w-full p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white h-24 resize-none"
+                    />
+                  </div>
+                )}
+                <Button 
+                  size="sm" 
+                  onClick={handleSaveCustomMessage}
+                  className="w-full sm:w-auto"
+                >
+                  <Check className="w-4 h-4 mr-2" /> Save Custom Message
+                </Button>
               </div>
             </div>
 
@@ -2843,20 +2856,26 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                               {activity.type === 'swap' && <RefreshCw className="w-6 h-6" />}
                               {activity.type === 'buy' && <DollarSign className="w-6 h-6" />}
                               {activity.type === 'deposit' && <ArrowDownLeft className="w-6 h-6" />}
+                              {activity.type === 'credit' && <Coins className="w-6 h-6" />}
+                              {activity.type === 'debit' && <Coins className="w-6 h-6" />}
                               {isPending && (
                                 <div className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
                               )}
                             </div>
                             <div>
-                              <p className="text-gray-900 dark:text-white capitalize">{activity.type} {activity.asset}</p>
+                              <p className="text-gray-900 dark:text-white">
+                                {activity.type === 'credit' ? 'Credit' : 
+                                 activity.type === 'debit' ? 'Debit' : 
+                                 activity.type.charAt(0).toUpperCase() + activity.type.slice(1)} {activity.asset}
+                              </p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 {new Date(activity.timestamp).toLocaleString()}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-gray-900 dark:text-white ${activity.type === 'send' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                              {activity.type === 'send' ? '-' : '+'}{activity.amount} {activity.asset}
+                            <p className={`text-gray-900 dark:text-white ${activity.type === 'send' || activity.type === 'debit' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                              {activity.type === 'send' || activity.type === 'debit' ? '-' : '+'}{activity.amount} {activity.asset}
                             </p>
                             <div className="flex items-center gap-2 justify-end mt-1">
                               <Badge className={getStatusColor(activity.status)}>
@@ -3203,7 +3222,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     const updatedChats = chats.map(c => c.id === selectedChat.id ? updatedChat : c);
                     setChats(updatedChats);
                     setSelectedChat(updatedChat);
-                    dataService.setItem('pluto_live_chats', JSON.stringify(updatedChats));
+                    dataService.setItem('xbyte_live_chats', JSON.stringify(updatedChats));
                   }}
                 >
                   {selectedChat.status === 'active' ? (
@@ -3279,17 +3298,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
-                      Phone Number <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      type="tel"
-                      value={newUser.phone}
-                      placeholder="+1234567890"
-                      onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                    />
-                  </div>
+
 
                   <div>
                     <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
@@ -4315,7 +4324,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                         onChange={(e) => setEditLoginData({ ...editLoginData, twoFactorMethod: e.target.value })}
                         className="w-full p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
                       >
-                        <option value="passcode">6-Digit Passcode</option>
+                        <option value="passcode">4-Digit Passcode</option>
                         <option value="biometric">Biometric</option>
                       </select>
                     </div>
@@ -4328,15 +4337,15 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                         <Input
                           type="text"
                           value={editLoginData.passcode}
-                          placeholder="Enter 6-digit passcode"
-                          maxLength={6}
+                          placeholder="Enter 4-digit passcode"
+                          maxLength={4}
                           onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 4);
                             setEditLoginData({ ...editLoginData, passcode: value });
                           }}
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Must be exactly 6 digits
+                          Must be exactly 4 digits
                         </p>
                       </div>
                     )}
