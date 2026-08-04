@@ -41,6 +41,39 @@ export function useAdminUsers() {
   return { users, setUsers, loading, refetch: fetchUsers };
 }
 
+export function useAdminAdminUsers() {
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAdminUsers = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('admin_get_admin_users');
+    if (!error && data) {
+      const mapped = data.map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name,
+        role: u.role,
+        is_admin: u.is_admin,
+        admin_permissions: u.admin_permissions || { allowed_tabs: [], allowed_user_ids: [] },
+        created_at: u.created_at,
+        last_login: u.last_login_at,
+        status: u.status
+      }));
+      setAdminUsers(mapped);
+    } else if (error) {
+      console.error('Error fetching admin users:', error.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchAdminUsers();
+  }, []);
+
+  return { adminUsers, setAdminUsers, loading, refetch: fetchAdminUsers };
+}
+
 export function useAdminFees() {
   const [fees, setFees] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -117,20 +150,23 @@ export function useAdminActivities() {
   return { activities, setActivities, loading, refetch: fetchActivities };
 }
 
-export function useAdminAuditLogs() {
+export function useAdminAuditLogs(adminId?: string) {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async () => {
     setLoading(true);
     // Use SECURITY DEFINER RPC to bypass RLS
-    const { data, error } = await supabase.rpc('admin_get_audit_logs');
+    // Pass adminId if provided to filter logs
+    const { data, error } = await supabase.rpc('admin_get_audit_logs', {
+      p_admin_id: adminId || null
+    });
     if (!error && data) {
       const mapped = data.map((l: any) => ({
         id: l.id,
         admin: l.admin_id || 'System',
         action: l.action,
-        details: l.metadata?.details || '',
+        details: l.details || l.metadata?.details || '',
         timestamp: l.created_at,
         ip: l.ip_address || 'unknown'
       }));
@@ -143,7 +179,7 @@ export function useAdminAuditLogs() {
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [adminId]);
 
   return { logs, setLogs, loading, refetch: fetchLogs };
 }

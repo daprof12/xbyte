@@ -1,4 +1,4 @@
-import { LogOut, ChevronDown, Moon, Sun, Menu, X, ArrowUpRight, Download } from 'lucide-react';
+import { LogOut, ChevronDown, Moon, Sun, Menu, X, ArrowUpRight, Download, ArrowRight, Zap, CircleDollarSign, Lock } from 'lucide-react';
 import Logo from './Logo';
 import { useState, useRef, useEffect } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -37,6 +37,28 @@ import pressMorningstar from "../assets/cryptomus/morningstar.png";
 import pressBeincrypto from "../assets/cryptomus/beincrypto.png";
 import pressMarketwatch from "../assets/cryptomus/marketwatch.png";
 import pressDextools from "../assets/cryptomus/dextools.png";
+
+const AnimatedText = ({ texts, className }: { texts: string[], className?: string }) => {
+  const [index, setIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % texts.length);
+        setFade(true);
+      }, 500);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [texts.length]);
+
+  return (
+    <p className={`transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'} ${className}`}>
+      {texts[index]}
+    </p>
+  );
+};
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -303,27 +325,79 @@ export default function LandingPage({
               style={{ background: 'radial-gradient(circle, rgba(91, 65, 255, 0.3) 0%, transparent 70%)' }} />
 
             <h1 className={`text-[clamp(2.5rem,6vw,4.5rem)] font-extrabold leading-[1.1] tracking-tight mb-6 ${textPrimary}`}>
-              The Ultimate All-in-One<br />
-              Crypto Ecosystem
+              Your Gateway to<br />
+              <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">Multi-Chain Finance</span>
             </h1>
-            <p className={`text-lg md:text-xl ${textSecondary} mb-10 max-w-xl mx-auto font-normal`}>
-              Scale your business. Manage your wealth
+            <p className={`text-lg md:text-xl ${textSecondary} mb-10 max-w-2xl mx-auto font-normal leading-relaxed`}>
+              One wallet for all your crypto needs. Secure, fast, and beautiful. Manage Bitcoin, Ethereum, Solana, and more from a single interface.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
               <button
                 onClick={onGetStarted}
-                className={`h-14 px-10 rounded-2xl font-semibold text-base ${btnPrimary} transition-all hover:shadow-lg w-full sm:w-auto`}
+                className={`h-12 px-8 rounded-xl font-medium text-[15px] flex items-center justify-center gap-2 ${btnPrimary} transition-all hover:shadow-lg w-full sm:w-auto`}
               >
-                Create Wallet
+                Create Wallet <ArrowRight className="w-4 h-4" />
               </button>
 
               <button
                 onClick={onImportWallet}
-                className={`h-14 px-10 rounded-2xl font-semibold text-base transition-all border w-full sm:w-auto ${darkMode ? 'border-[#27272a] text-white hover:bg-white/5' : 'border-[#e5e5e7] text-[#18181b] hover:bg-black/5'}`}
+                className={`h-12 px-8 rounded-xl font-medium text-[15px] transition-all border w-full sm:w-auto ${darkMode ? 'border-[#27272a] text-white hover:bg-white/5' : 'border-[#e5e5e7] text-[#18181b] hover:bg-black/5'}`}
               >
                 Import Wallet
               </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-24">
+              <span className={`text-sm ${textSecondary}`}>Available for:</span>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-default ${bgCard} ${borderCol} ${textSecondary}`}>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="21.17" y1="8" x2="12" y2="8"></line><line x1="3.95" y1="6.06" x2="8.54" y2="14"></line><line x1="10.88" y1="21.94" x2="15.46" y2="14"></line></svg>
+                  <span className="text-sm font-medium">Chrome</span>
+                </div>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-default ${bgCard} ${borderCol} ${textSecondary}`}>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h10"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  <span className="text-sm font-medium">Firefox</span>
+                </div>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-default ${bgCard} ${borderCol} ${textSecondary}`}>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  <span className="text-sm font-medium">Edge</span>
+                </div>
+                <div
+                  onClick={handlePWAInstall}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors cursor-pointer ${darkMode ? 'border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20' : 'border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100'}`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="text-sm font-medium">PWA</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12">
+              <h2 className={`text-xl md:text-2xl font-bold mb-8 ${textPrimary}`}>
+                Multi-Chain Support
+              </h2>
+
+              <div className="flex flex-wrap justify-center gap-4">
+                {[
+                  { img: imgBtc, name: 'Bitcoin', symbol: 'BTC' },
+                  { img: imgEth, name: 'Ethereum', symbol: 'ETH' },
+                  { img: imgSol, name: 'Solana', symbol: 'SOL' },
+                  { img: imgBnb, name: 'BNB Chain', symbol: 'BNB' },
+                  { img: imgUsdt, name: 'USDT', symbol: 'USDT' },
+                ].map((coin) => (
+                  <div
+                    key={coin.symbol}
+                    className={`flex items-center gap-3 px-5 py-3 rounded-xl border transition-colors ${bgCard} ${bgCardHover} ${borderCol} w-[160px] text-left cursor-default hover:shadow-md`}
+                  >
+                    <img src={coin.img} alt={coin.name} className="w-8 h-8 rounded-full" />
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-semibold ${textPrimary}`}>{coin.name}</span>
+                      <span className={`text-xs ${textSecondary}`}>{coin.symbol}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -362,7 +436,7 @@ export default function LandingPage({
             {/* Text */}
             <div className="flex-1 p-8 md:p-12">
               <h2 className={`text-3xl md:text-4xl font-bold mb-4 ${textPrimary}`}>
-                Cryptocurrency payment gateway
+                Digital asset gateway
               </h2>
               <p className={`text-lg mb-8 ${textSecondary}`}>
                 Accept payments with fees as low as 0.4%
@@ -389,11 +463,16 @@ export default function LandingPage({
             {/* Text */}
             <div className="flex-1 p-8 md:p-12">
               <h2 className={`text-3xl md:text-4xl font-bold mb-4 ${textPrimary}`}>
-                Cryptocurrency cards
+                Assets Recovery
               </h2>
-              <p className={`text-lg mb-8 ${textSecondary}`}>
-                Pay with crypto wherever you want. Get your card in 5 minutes
-              </p>
+              <AnimatedText
+                texts={[
+                  "We have helped to recover millions of dollars of stolen cryptocurrency.",
+                  "We have traced cryptocurrencies in hundreds of cybercrime cases.",
+                  "We have served as experts in major cases."
+                ]}
+                className={`text-lg mb-8 ${textSecondary} min-h-[4rem]`}
+              />
               <div className="flex flex-wrap gap-3">
                 <button onClick={onGetStarted} className={`h-12 px-7 rounded-xl font-semibold text-sm ${btnPrimary} transition-colors`}>
                   Try now
@@ -416,7 +495,7 @@ export default function LandingPage({
             {/* Text */}
             <div className="flex-1 p-8 md:p-12">
               <h2 className={`text-3xl md:text-4xl font-bold mb-4 ${textPrimary}`}>
-                Trading platform
+                $10B in Assets Management
               </h2>
               <p className={`text-lg mb-4 ${textSecondary}`}>
                 High liquidity and fees as low as 0.04%
@@ -458,6 +537,41 @@ export default function LandingPage({
               className={`flex items-center gap-2 h-12 px-5 rounded-full border ${bgCard} ${borderCol} ${textTertiary} text-sm font-medium`}
             >
               +95 more
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mt-20 max-w-5xl mx-auto">
+            {/* Ethereum Blockchain */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-5 text-white shadow-lg shadow-purple-500/20">
+                <Zap className="w-7 h-7" fill="currentColor" />
+              </div>
+              <h3 className={`text-xl font-bold mb-3 ${textPrimary}`}>Ethereum Blockchain</h3>
+              <p className={`text-[15px] leading-relaxed ${textSecondary} max-w-[280px] mx-auto`}>
+                Explore, transact, and interact with the entire Ethereum ecosystem.
+              </p>
+            </div>
+
+            {/* Efficient Ethereum Gas Handling */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center mb-5 text-white shadow-lg shadow-emerald-500/20">
+                <CircleDollarSign className="w-7 h-7" />
+              </div>
+              <h3 className={`text-xl font-bold mb-3 ${textPrimary}`}>Efficient Ethereum Gas Handling</h3>
+              <p className={`text-[15px] leading-relaxed ${textSecondary} max-w-[280px] mx-auto`}>
+                Track and forecast gas fees before transactions.
+              </p>
+            </div>
+
+            {/* Web3 Domains */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-fuchsia-500 to-pink-500 flex items-center justify-center mb-5 text-white shadow-lg shadow-pink-500/20">
+                <Lock className="w-7 h-7" />
+              </div>
+              <h3 className={`text-xl font-bold mb-3 ${textPrimary}`}>Web3 Domains</h3>
+              <p className={`text-[15px] leading-relaxed ${textSecondary} max-w-[280px] mx-auto`}>
+                Create and manage your Web3 identity with custom domains.
+              </p>
             </div>
           </div>
         </section>

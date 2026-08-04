@@ -40,7 +40,7 @@ export default function AdminLogin({ onLogin, onBack, onLogoClick }: AdminLoginP
       // Verify admin status
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('is_admin, full_name, email')
+        .select('is_admin, full_name, email, role, admin_permissions')
         .eq('id', data.user.id)
         .single();
 
@@ -53,6 +53,8 @@ export default function AdminLogin({ onLogin, onBack, onLogoClick }: AdminLoginP
         email: email,
         loginTime: new Date().toISOString(),
         sessionId: 'sess_' + Math.random().toString(36).substring(7),
+        role: userData.role || 'admin',
+        admin_permissions: userData.admin_permissions || { allowed_tabs: [], allowed_user_ids: [] },
         user: {
           id: data.user.id,
           email: userData.email,

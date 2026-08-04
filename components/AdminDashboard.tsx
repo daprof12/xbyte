@@ -1,8 +1,9 @@
 import dataService from '../utils/dataService';
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import { fetchUserWalletFromDB } from '../utils/supabaseHelpers';
 import { useAdminUsers, useAdminFees, useAdminActivities, useAdminAuditLogs, useAdminTickets, useAdminChats } from '../hooks/useSupabaseData';
-import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, KeyRound, Moon, Sun, Database } from 'lucide-react';
+import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, LogIn, KeyRound, Moon, Sun, Database } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -27,6 +28,8 @@ import { fetchCryptoPrices } from '../utils/priceService';
 import { formatDecimal, formatPercentage, formatBalance } from '../utils/formatNumber';
 import MigrationPanel from './MigrationPanel';
 import AdminMessaging from './admin/AdminMessaging';
+import AdminUsersTab from './admin/AdminUsersTab';
+import { storage } from '../utils/platform';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -72,10 +75,36 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [showAdminSettings, setShowAdminSettings] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [adminProfile, setAdminProfile] = useState({
+    id: '',
     name: 'Super Admin',
     email: 'admin3@pluto.com',
-    role: 'Super Admin'
+    role: 'super_admin'
   });
+  const [adminPermissions, setAdminPermissions] = useState({
+    allowed_tabs: [] as string[],
+    allowed_user_ids: [] as string[]
+  });
+
+  useEffect(() => {
+    storage.get('xbyte_admin_session').then((session) => {
+      if (session) {
+        setAdminProfile({
+          id: session.user?.id || '',
+          name: session.user?.full_name || 'Admin',
+          email: session.email || 'admin@xbyte.com',
+          role: session.role || 'admin'
+        });
+        setAdminPermissions(session.admin_permissions || { allowed_tabs: [], allowed_user_ids: [] });
+        
+        // If regular admin, ensure their active tab is one they have access to
+        if (session.role !== 'super_admin' && session.admin_permissions?.allowed_tabs?.length > 0) {
+          if (!session.admin_permissions.allowed_tabs.includes(activeTab)) {
+            setActiveTab(session.admin_permissions.allowed_tabs[0]);
+          }
+        }
+      }
+    });
+  }, []);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -266,6 +295,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         message: message.trim(),
         is_admin_reply: true
     });
+    
+    addAuditLog('Support Reply', `Replied to support ticket ${ticketId}`);
 
     const updatedTickets = tickets.map((ticket: any) => {
       if (ticket.id === ticketId) {
@@ -293,12 +324,52 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [chatStatusFilter, setChatStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
 
   // Load audit logs from Supabase
-  const { logs: auditLogs, setLogs: setAuditLogs, loading: logsLoading } = useAdminAuditLogs();
+  const { logs: auditLogs, setLogs: setAuditLogs, loading: logsLoading } = useAdminAuditLogs(adminProfile.role === 'super_admin' ? undefined : adminProfile.id);
+
+  const addAuditLog = async (action: string, details: string) => {
+    const logData = {
+      admin_id: adminProfile.id || null,
+      action,
+      metadata: { details },
+      ip_address: '127.0.0.1' // In a real app this would come from the server
+    };
+    const { data, error } = await supabase.from('audit_logs').insert(logData).select('*, users(email)').single();
+    if (!error && data) {
+      const mappedLog = {
+        id: data.id,
+        admin: data.users?.email || data.admin_id || 'System',
+        action: data.action,
+        details: data.metadata?.details || '',
+        timestamp: data.created_at,
+        ip: data.ip_address
+      };
+      setAuditLogs([mappedLog, ...auditLogs]);
+    }
+  };
 
   // Persist audit logs to localStorage whenever they change
   useEffect(() => {
     dataService.setItem('xbyte_admin_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
+
+  const handleLoginAsUser = async (user: any) => {
+    try {
+      // 1. Fetch full user wallet data
+      const walletData = await fetchUserWalletFromDB(user.id);
+      
+      // 2. Set wallet in storage
+      dataService.setItem('xbyte_wallet', JSON.stringify(walletData));
+      
+      // 3. Set auto-login flag
+      localStorage.setItem('xbyte_auto_login', 'true');
+      
+      // 4. Open in new tab
+      window.open(window.location.origin, '_blank');
+    } catch (e: any) {
+      console.error('Failed to login as user:', e);
+      alert(`Error logging in as user: ${e.message}`);
+    }
+  };
 
   const handleViewDetails = (user: any) => {
     setSelectedUser(user);
@@ -373,6 +444,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       .then(({ error }) => {
         if (error) {
           console.error('Error updating user status in Supabase:', error.message);
+        } else {
+          addAuditLog(newBlocked ? 'Block User' : 'Unblock User', `${newBlocked ? 'Blocked' : 'Unblocked'} user ${userToUpdate.email}`);
         }
       });
   };
@@ -391,6 +464,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         .then(({ error }) => {
           if (error) {
             console.error('Error deleting user from Supabase:', error.message);
+          } else {
+            addAuditLog('Delete User', `Deleted user with ID ${userId}`);
           }
         });
     }
@@ -631,6 +706,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
         }
 
         console.log('✅ Admin balance/address update synced to Supabase for user:', selectedUser.id);
+        
+        // Log the activity
+        addAuditLog('Update User Balance', `Updated balance or addresses for user ${selectedUser.email}`);
+        
         // Re-fetch activities from DB to ensure admin sees latest data
         refetchActivities();
       } catch (err) {
@@ -988,15 +1067,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     setFees(updatedFees);
 
     // Log activity
-    const activity = {
-      id: auditLogs.length + 1,
-      admin: 'admin3@pluto.com',
-      action: 'Fee Update',
-      details: `Updated ${asset} withdrawal fee and deposit settings`,
-      timestamp: new Date().toISOString(),
-      ip: '192.168.1.1'
-    };
-    setAuditLogs([activity, ...auditLogs]);
+    addAuditLog('Fee Update', `Updated ${asset} withdrawal fee and deposit settings`);
 
     // Sync to Supabase
     supabase
@@ -1449,10 +1520,16 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    // If not super admin, check if user is in allowed list
+    if (adminProfile.role !== 'super_admin' && adminPermissions.allowed_user_ids.length > 0) {
+      if (!adminPermissions.allowed_user_ids.includes(u.id)) {
+        return false;
+      }
+    }
+    return u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           u.id.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const platformAssets = calculatePlatformAssets();
   const totalPlatformValue = Object.values(platformAssets).reduce((sum: number, asset: any) => sum + asset.value, 0);
@@ -1463,6 +1540,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     { label: 'Active Chats', value: chats.filter(c => c.status === 'active').length, icon: MessageCircle, color: 'bg-green-500' },
     { label: 'Platform Value', value: `$${totalPlatformValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: DollarSign, color: 'bg-purple-500', isValue: true }
   ];
+
+  const hasTabAccess = (tab: string) => adminProfile.role === 'super_admin' || adminPermissions.allowed_tabs.includes(tab);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -1564,57 +1643,69 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="users">User Management</SelectItem>
-                <SelectItem value="assets">Assets Overview</SelectItem>
-                <SelectItem value="fees">Fee Settings</SelectItem>
-                <SelectItem value="messages">Message Settings</SelectItem>
-                <SelectItem value="support">
-                  Support Tickets
-                  {tickets.filter(t => t.status === 'open').length > 0 && ` (${tickets.filter(t => t.status === 'open').length})`}
-                </SelectItem>
-                <SelectItem value="chat">
-                  Live Chat
-                  {chats.reduce((sum, c) => sum + c.unread_count, 0) > 0 && ` (${chats.reduce((sum, c) => sum + c.unread_count, 0)})`}
-                </SelectItem>
-                <SelectItem value="audit">Audit Logs</SelectItem>
-                <SelectItem value="sync">Data Sync</SelectItem>
+                {hasTabAccess('users') && <SelectItem value="users">User Management</SelectItem>}
+                {hasTabAccess('assets') && <SelectItem value="assets">Assets Overview</SelectItem>}
+                {hasTabAccess('fees') && <SelectItem value="fees">Fee Settings</SelectItem>}
+                {hasTabAccess('messages') && <SelectItem value="messages">Message Settings</SelectItem>}
+                {hasTabAccess('support') && (
+                  <SelectItem value="support">
+                    Support Tickets
+                    {tickets.filter(t => t.status === 'open').length > 0 && ` (${tickets.filter(t => t.status === 'open').length})`}
+                  </SelectItem>
+                )}
+                {hasTabAccess('chat') && (
+                  <SelectItem value="chat">
+                    Live Chat
+                    {chats.reduce((sum, c) => sum + c.unread_count, 0) > 0 && ` (${chats.reduce((sum, c) => sum + c.unread_count, 0)})`}
+                  </SelectItem>
+                )}
+                {hasTabAccess('audit') && <SelectItem value="audit">Audit Logs</SelectItem>}
+                {hasTabAccess('sync') && <SelectItem value="sync">Data Sync</SelectItem>}
+                {adminProfile.role === 'super_admin' && <SelectItem value="admin_users">Admin Users</SelectItem>}
               </SelectContent>
             </Select>
           </div>
 
           {/* Desktop Tab Buttons */}
           <TabsList className="mb-6 hidden md:flex">
-            <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="assets">Assets Overview</TabsTrigger>
-            <TabsTrigger value="fees">Fee Settings</TabsTrigger>
-            <TabsTrigger value="messages">Message Settings</TabsTrigger>
-            <TabsTrigger value="support">
-              <div className="flex items-center gap-2">
-                Support Tickets
-                {tickets.filter(t => t.status === 'open').length > 0 && (
-                  <Badge variant="destructive" className="text-xs px-1.5 py-0">
-                    {tickets.filter(t => t.status === 'open').length}
-                  </Badge>
-                )}
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="chat">
-              <div className="flex items-center gap-2">
-                Live Chat
-                {chats.reduce((sum, c) => sum + c.unread_count, 0) > 0 && (
-                  <Badge variant="destructive" className="text-xs px-1.5 py-0">
-                    {chats.reduce((sum, c) => sum + c.unread_count, 0)}
-                  </Badge>
-                )}
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="audit">Audit Logs</TabsTrigger>
-            <TabsTrigger value="sync">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4" />
-                Data Sync
-              </div>
-            </TabsTrigger>
+            {hasTabAccess('users') && <TabsTrigger value="users">User Management</TabsTrigger>}
+            {hasTabAccess('assets') && <TabsTrigger value="assets">Assets Overview</TabsTrigger>}
+            {hasTabAccess('fees') && <TabsTrigger value="fees">Fee Settings</TabsTrigger>}
+            {hasTabAccess('messages') && <TabsTrigger value="messages">Message Settings</TabsTrigger>}
+            {hasTabAccess('support') && (
+              <TabsTrigger value="support">
+                <div className="flex items-center gap-2">
+                  Support Tickets
+                  {tickets.filter(t => t.status === 'open').length > 0 && (
+                    <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                      {tickets.filter(t => t.status === 'open').length}
+                    </Badge>
+                  )}
+                </div>
+              </TabsTrigger>
+            )}
+            {hasTabAccess('chat') && (
+              <TabsTrigger value="chat">
+                <div className="flex items-center gap-2">
+                  Live Chat
+                  {chats.reduce((sum, c) => sum + c.unread_count, 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                      {chats.reduce((sum, c) => sum + c.unread_count, 0)}
+                    </Badge>
+                  )}
+                </div>
+              </TabsTrigger>
+            )}
+            {adminProfile.role === 'super_admin' && <TabsTrigger value="admin_users">Admin Users</TabsTrigger>}
+            {hasTabAccess('audit') && <TabsTrigger value="audit">Audit Logs</TabsTrigger>}
+            {hasTabAccess('sync') && (
+              <TabsTrigger value="sync">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4" />
+                  Data Sync
+                </div>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Users Tab */}
@@ -1693,6 +1784,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                               <DropdownMenuItem onClick={() => handleViewDetails(user)}>
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleLoginAsUser(user)}>
+                                <LogIn className="w-4 h-4 mr-2" />
+                                Login as User
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditBalance(user)}>
                                 <Edit className="w-4 h-4 mr-2" />
@@ -2436,6 +2531,13 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
               </Table>
             </div>
           </TabsContent>
+
+          {/* Admin Users Tab */}
+          {adminProfile.role === 'super_admin' && (
+            <TabsContent value="admin_users">
+              <AdminUsersTab adminProfile={adminProfile} platformUsers={users} />
+            </TabsContent>
+          )}
 
           {/* Data Sync Tab */}
           <TabsContent value="sync">

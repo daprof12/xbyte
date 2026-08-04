@@ -30,6 +30,15 @@ export default function App() {
       // Initialize view based on session state
       const savedView = sessionStorage.getItem('xbyte_current_view') as View | null;
       const existingWallet = storageSync.get('xbyte_wallet');
+      
+      // Handle admin impersonation auto-login flag
+      if (localStorage.getItem('xbyte_auto_login') === 'true') {
+        localStorage.removeItem('xbyte_auto_login');
+        sessionStorage.setItem('xbyte_session_active', 'true');
+        sessionStorage.setItem('xbyte_current_view', 'wallet');
+        return 'wallet';
+      }
+
       const activeWalletSession = sessionStorage.getItem('xbyte_session_active');
       const activeAdminSession = storageSync.get('xbyte_admin_session');
 
