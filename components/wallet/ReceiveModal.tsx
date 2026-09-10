@@ -138,7 +138,7 @@ export default function ReceiveModal({ walletData, onClose, selectedAsset }: Rec
           {/* Share Button */}
           <Button 
             onClick={handleShare}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            className="w-full bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-lg"
           >
             <Share2 className="w-4 h-4 mr-2" />
             Share Address & QR Code

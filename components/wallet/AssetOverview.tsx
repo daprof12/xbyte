@@ -913,7 +913,7 @@ export default function AssetOverview({ asset, onBack, isDark, walletData, onUpd
                 </Button>
                 <Button 
                   onClick={handleSaveEditedTransaction}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                  className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-md"
                 >
                   Save Changes
                 </Button>

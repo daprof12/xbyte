@@ -14,9 +14,12 @@ export function useAdminUsers() {
       const mapped = data.map((u: any) => ({
         id: u.id,
         email: u.email,
+        full_name: u.full_name || u.email.split('@')[0],
         role: u.role,
         status: u.status,
         kyc_status: u.metadata?.kyc_status || 'pending',
+        kyc_data: u.metadata?.kyc_data || null,
+        metadata: u.metadata || {},
         balances: u.metadata?.balances || { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0' },
         addresses: u.metadata?.addresses || u.wallet_address || {},
         twoFactorAuth: u.metadata?.twoFactorAuth || {},

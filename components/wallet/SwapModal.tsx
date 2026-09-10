@@ -26,10 +26,15 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
   const [processingStage, setProcessingStage] = useState(0);
   const [showGasFeeWarning, setShowGasFeeWarning] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
+  const [showAccountNotice, setShowAccountNotice] = useState(false);
 
   // Check for admin custom message
   useEffect(() => {
     try {
+      if (walletData && (walletData as any).customMessageEnabled && (walletData as any).customMessage) {
+        setCustomMessage((walletData as any).customMessage);
+        return;
+      }
       const adminUsersStr = dataService.getItem('xbyte_admin_users');
       if (adminUsersStr) {
         const adminUsers = JSON.parse(adminUsersStr);
@@ -41,7 +46,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
     } catch (e) {
       console.error('Error fetching custom message:', e);
     }
-  }, [walletData.id]);
+  }, [walletData.id, (walletData as any)?.customMessage, (walletData as any)?.customMessageEnabled]);
 
   // Get gas fee settings from admin
   const getGasFeeSettings = (assetSymbol: string) => {
@@ -173,6 +178,12 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
   };
 
   const confirmSwap = () => {
+    // If admin has enabled User Restrictions & Custom Message, show Account Notice and stop swap
+    if (customMessage) {
+      setShowAccountNotice(true);
+      return;
+    }
+
     // For all swaps involving non-ETH assets, check if user has sufficient ETH for gas
     if (fromAsset !== 'ETH' || toAsset !== 'ETH') {
       const ethBalance = parseFloat(walletData.balances['ETH'] || '0');
@@ -505,27 +516,14 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl text-gray-900 dark:text-white">
-            {step === 'form' ? 'Swap' : step === 'confirm' ? 'Confirm Swap' : step === 'processing' ? 'Processing' : 'Success'}
+            {step === 'form' ? 'Swap' : step === 'confirm' ? (showAccountNotice ? 'Account Notice' : 'Confirm Swap') : step === 'processing' ? 'Processing' : 'Success'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+          <button onClick={() => { setShowAccountNotice(false); onClose(); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {step === 'form' && customMessage ? (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-            </div>
-            <h3 className="text-xl mb-4 text-gray-900 dark:text-white">Account Notice</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6 whitespace-pre-line">
-              {customMessage}
-            </p>
-            <Button size="lg" className="w-full" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        ) : step === 'form' && (
+        {step === 'form' && (
           <div className="space-y-4">
             {/* From */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
@@ -744,52 +742,73 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         )}
 
         {step === 'confirm' && (
-          <div className="space-y-6">
+          showAccountNotice ? (
             <div className="text-center py-6">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">You are swapping</p>
-              <div className="text-3xl mb-2 text-gray-900 dark:text-white">
-                {fromAmount} {fromAsset}
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                ≈ ${((parseFloat(fromAmount) * (prices[fromAsset] || 0))).toFixed(2)} USD
+              <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Account Notice</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6 whitespace-pre-line leading-relaxed">
+                {customMessage}
               </p>
-              <ArrowDown className="w-6 h-6 mx-auto my-4 text-gray-400" />
-              <div className="text-3xl mb-2 text-gray-900 dark:text-white">
-                {toAmount} {toAsset}
+              <div className="space-y-3">
+                <Button size="lg" className="w-full bg-amber-600 hover:bg-amber-700 text-white" onClick={() => { setShowAccountNotice(false); onClose(); }}>
+                  Close
+                </Button>
+                <Button size="lg" variant="outline" className="w-full" onClick={() => setShowAccountNotice(false)}>
+                  Back to Details
+                </Button>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                ≈ ${((parseFloat(toAmount) * (prices[toAsset] || 0))).toFixed(2)} USD
-              </p>
             </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">You are swapping</p>
+                <div className="text-3xl mb-2 text-gray-900 dark:text-white">
+                  {fromAmount} {fromAsset}
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  ≈ ${((parseFloat(fromAmount) * (prices[fromAsset] || 0))).toFixed(2)} USD
+                </p>
+                <ArrowDown className="w-6 h-6 mx-auto my-4 text-gray-400" />
+                <div className="text-3xl mb-2 text-gray-900 dark:text-white">
+                  {toAmount} {toAsset}
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  ≈ ${((parseFloat(toAmount) * (prices[toAsset] || 0))).toFixed(2)} USD
+                </p>
+              </div>
 
-            {/* Swap Details */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Exchange Rate</span>
-                <span className="text-gray-900 dark:text-white">
-                  1 {fromAsset} = {rate.toFixed(8)} {toAsset}
-                </span>
+              {/* Swap Details */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Exchange Rate</span>
+                  <span className="text-gray-900 dark:text-white">
+                    1 {fromAsset} = {rate.toFixed(8)} {toAsset}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Network Fee</span>
+                  <span className="text-gray-900 dark:text-white">{swapFeeInfo.feeInAsset}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Provider</span>
+                  <span className="text-gray-900 dark:text-white">1inch Aggregator</span>
+                </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Network Fee</span>
-                <span className="text-gray-900 dark:text-white">{swapFeeInfo.feeInAsset}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Provider</span>
-                <span className="text-gray-900 dark:text-white">1inch Aggregator</span>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <Button size="lg" className="w-full" onClick={confirmSwap}>
-                Confirm Swap
-              </Button>
-              <Button size="lg" variant="outline" className="w-full" onClick={() => setStep('form')}>
-                Back
-              </Button>
+              <div className="space-y-3">
+                <Button size="lg" className="w-full" onClick={confirmSwap}>
+                  Confirm Swap
+                </Button>
+                <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
+                  Back
+                </Button>
+              </div>
             </div>
-          </div>
+          )
         )}
+
 
         {step === 'processing' && (
           <div className="text-center py-8">

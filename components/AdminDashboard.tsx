@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { fetchUserWalletFromDB } from '../utils/supabaseHelpers';
 import { useAdminUsers, useAdminFees, useAdminActivities, useAdminAuditLogs, useAdminTickets, useAdminChats } from '../hooks/useSupabaseData';
-import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, LogIn, KeyRound, Moon, Sun, Database } from 'lucide-react';
+import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Trash2, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, LogIn, KeyRound, Moon, Sun, Database, FileCheck, ShieldCheck, ExternalLink, Image, Upload, Loader2, Bell, Plus, Minus } from 'lucide-react';
+
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -54,6 +55,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [editBalances, setEditBalances] = useState<any>({});
   const [editAddresses, setEditAddresses] = useState<any>({});
   const [addressErrors, setAddressErrors] = useState<{[key: string]: string}>({});
+  const [quickAdjust, setQuickAdjust] = useState({ asset: '', action: 'add', amount: '', note: '' });
+  const [isQuickAdjusting, setIsQuickAdjusting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [showTicketDetails, setShowTicketDetails] = useState(false);
   const [ticketResponse, setTicketResponse] = useState('');
@@ -72,6 +75,25 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     addresses: { BTC: '', ETH: '', SOL: '', BNB: '', USDT: '' }
   });
   const [newUserAddressErrors, setNewUserAddressErrors] = useState<{[key: string]: string}>({});
+  
+  // KYC Review & Management State
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [selectedKycUser, setSelectedKycUser] = useState<any>(null);
+  const [kycForm, setKycForm] = useState({
+    status: 'pending',
+    fullName: '',
+    dateOfBirth: '',
+    country: '',
+    idType: 'national_id',
+    idNumber: '',
+    address: '',
+    documentFrontUrl: '',
+    documentBackUrl: '',
+    selfieUrl: '',
+    adminNotes: '',
+    rejectionReason: '',
+  });
+  const [isSavingKyc, setIsSavingKyc] = useState(false);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [adminProfile, setAdminProfile] = useState({
@@ -392,7 +414,9 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
     // Sync to Supabase metadata
     const newMetadata = {
+      ...(selectedUser.metadata || {}),
       kyc_status: selectedUser.kyc_status || 'pending',
+      kyc_data: selectedUser.kyc_data || (selectedUser.metadata && selectedUser.metadata.kyc_data) || null,
       balances: selectedUser.balances || {},
       addresses: selectedUser.addresses || {},
       twoFactorAuth: selectedUser.twoFactorAuth || {},
@@ -411,6 +435,223 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       });
 
     alert('Custom message updated successfully!');
+  };
+
+  const handleOpenKycModal = (user: any) => {
+    setSelectedKycUser(user);
+    const kyc = user.kyc_data || (user.metadata && user.metadata.kyc_data) || {};
+    setKycForm({
+      status: user.kyc_status || user.metadata?.kyc_status || 'pending',
+      fullName: kyc.fullName || kyc.full_name || user.full_name || '',
+      dateOfBirth: kyc.dateOfBirth || kyc.date_of_birth || '',
+      country: kyc.country || kyc.nationality || '',
+      idType: kyc.idType || kyc.id_type || 'national_id',
+      idNumber: kyc.idNumber || kyc.id_number || '',
+      address: kyc.address || '',
+      documentFrontUrl: kyc.documentFrontUrl || kyc.document_url || '',
+      documentBackUrl: kyc.documentBackUrl || kyc.document_back_url || '',
+      selfieUrl: kyc.selfieUrl || kyc.selfie_url || '',
+      adminNotes: kyc.adminNotes || kyc.admin_notes || '',
+      rejectionReason: kyc.rejectionReason || kyc.rejection_reason || ''
+    });
+    setShowKycModal(true);
+  };
+
+  const handleSaveKycData = async (overrideStatus?: string) => {
+    if (!selectedKycUser) return;
+    setIsSavingKyc(true);
+    try {
+      const finalStatus = overrideStatus || kycForm.status;
+      const updatedKycData = {
+        ...(selectedKycUser.kyc_data || (selectedKycUser.metadata && selectedKycUser.metadata.kyc_data) || {}),
+        fullName: kycForm.fullName,
+        full_name: kycForm.fullName,
+        dateOfBirth: kycForm.dateOfBirth,
+        date_of_birth: kycForm.dateOfBirth,
+        country: kycForm.country,
+        nationality: kycForm.country,
+        idType: kycForm.idType,
+        id_type: kycForm.idType,
+        idNumber: kycForm.idNumber,
+        id_number: kycForm.idNumber,
+        address: kycForm.address,
+        documentFrontUrl: kycForm.documentFrontUrl,
+        document_url: kycForm.documentFrontUrl,
+        documentBackUrl: kycForm.documentBackUrl,
+        document_back_url: kycForm.documentBackUrl,
+        selfieUrl: kycForm.selfieUrl,
+        selfie_url: kycForm.selfieUrl,
+        adminNotes: kycForm.adminNotes,
+        admin_notes: kycForm.adminNotes,
+        rejectionReason: kycForm.rejectionReason,
+        rejection_reason: kycForm.rejectionReason,
+        status: finalStatus,
+        reviewed_at: new Date().toISOString()
+      };
+
+      const updatedUserMetadata = {
+        ...(selectedKycUser.metadata || {}),
+        kyc_status: finalStatus,
+        kyc_data: updatedKycData,
+        balances: selectedKycUser.balances || {},
+        addresses: selectedKycUser.addresses || {},
+        twoFactorAuth: selectedKycUser.twoFactorAuth || {},
+        customMessage: selectedKycUser.customMessage || '',
+        customMessageEnabled: selectedKycUser.customMessageEnabled || false
+      };
+
+      // 1. Update in-memory users state
+      const updatedUsers = users.map((u: any) => 
+        u.id === selectedKycUser.id 
+          ? { 
+              ...u, 
+              kyc_status: finalStatus, 
+              kyc_data: updatedKycData, 
+              full_name: kycForm.fullName || u.full_name,
+              metadata: updatedUserMetadata 
+            } 
+          : u
+      );
+      setUsers(updatedUsers);
+      dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+      // Also update selectedUser if user details modal is open
+      if (selectedUser && selectedUser.id === selectedKycUser.id) {
+        setSelectedUser({
+          ...selectedUser,
+          kyc_status: finalStatus,
+          kyc_data: updatedKycData,
+          full_name: kycForm.fullName || selectedUser.full_name,
+          metadata: updatedUserMetadata
+        });
+      }
+
+      // 2. Sync to Supabase
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: kycForm.fullName || undefined,
+          metadata: updatedUserMetadata
+        })
+        .eq('id', selectedKycUser.id);
+
+      if (error) {
+        console.error('Error updating user KYC in Supabase:', error.message);
+        alert(`Failed to save KYC to Supabase: ${error.message}`);
+      } else {
+        // Also update local wallet if the currently active wallet is this user
+        const storedWallet = dataService.getItem('xbyte_wallet');
+        if (storedWallet) {
+          try {
+            const parsed = JSON.parse(storedWallet);
+            if (parsed.id === selectedKycUser.id) {
+              const updatedWallet = {
+                ...parsed,
+                kyc_status: finalStatus,
+                kyc_data: updatedKycData
+              };
+              dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+              window.dispatchEvent(new CustomEvent('walletDataUpdated', {
+                detail: { walletData: updatedWallet }
+              }));
+            }
+          } catch (e) {
+            console.error('Error updating xbyte_wallet:', e);
+          }
+        }
+
+        addAuditLog('Update KYC', `Updated KYC status to ${finalStatus} for ${selectedKycUser.email}`);
+        alert(`KYC status updated to ${finalStatus.toUpperCase()} successfully!`);
+        setShowKycModal(false);
+      }
+    } catch (err: any) {
+      console.error('KYC update error:', err);
+      alert(`Error updating KYC: ${err.message || err}`);
+    } finally {
+      setIsSavingKyc(false);
+    }
+  };
+
+  const handleQuickUpdateKycStatus = async (user: any, newStatus: string) => {
+    setSelectedKycUser(user);
+    const kyc = user.kyc_data || (user.metadata && user.metadata.kyc_data) || {};
+    const updatedKycData = {
+      ...kyc,
+      status: newStatus,
+      reviewed_at: new Date().toISOString()
+    };
+
+    const updatedUserMetadata = {
+      ...(user.metadata || {}),
+      kyc_status: newStatus,
+      kyc_data: updatedKycData,
+      balances: user.balances || {},
+      addresses: user.addresses || {},
+      twoFactorAuth: user.twoFactorAuth || {},
+      customMessage: user.customMessage || '',
+      customMessageEnabled: user.customMessageEnabled || false
+    };
+
+    const updatedUsers = users.map((u: any) => 
+      u.id === user.id ? { ...u, kyc_status: newStatus, kyc_data: updatedKycData, metadata: updatedUserMetadata } : u
+    );
+    setUsers(updatedUsers);
+    dataService.setItem('xbyte_admin_users', JSON.stringify(updatedUsers));
+
+    if (selectedUser && selectedUser.id === user.id) {
+      setSelectedUser({
+        ...selectedUser,
+        kyc_status: newStatus,
+        kyc_data: updatedKycData,
+        metadata: updatedUserMetadata
+      });
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update({ metadata: updatedUserMetadata })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Error updating KYC status in Supabase:', error.message);
+      alert(`Failed to update status: ${error.message}`);
+    } else {
+      const storedWallet = dataService.getItem('xbyte_wallet');
+      if (storedWallet) {
+        try {
+          const parsed = JSON.parse(storedWallet);
+          if (parsed.id === user.id) {
+            const updatedWallet = {
+              ...parsed,
+              kyc_status: newStatus,
+              kyc_data: updatedKycData
+            };
+            dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+            window.dispatchEvent(new CustomEvent('walletDataUpdated', {
+              detail: { walletData: updatedWallet }
+            }));
+          }
+        } catch (e) {
+          console.error('Error updating xbyte_wallet:', e);
+        }
+      }
+      addAuditLog('Update KYC Status', `Quick-updated KYC to ${newStatus} for ${user.email}`);
+      alert(`User KYC marked as ${newStatus.toUpperCase()}!`);
+    }
+  };
+
+  const handleAdminKycFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'front' | 'back' | 'selfie') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        if (field === 'front') setKycForm(prev => ({ ...prev, documentFrontUrl: result }));
+        if (field === 'back') setKycForm(prev => ({ ...prev, documentBackUrl: result }));
+        if (field === 'selfie') setKycForm(prev => ({ ...prev, selfieUrl: result }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleEditBalance = (user: any) => {
@@ -603,7 +844,9 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
       try {
         // 1. Always update users table metadata (balances + addresses + custom message)
         const updatedMetadata = {
+          ...(selectedUser.metadata || {}),
           kyc_status: selectedUser.kyc_status || 'pending',
+          kyc_data: selectedUser.kyc_data || (selectedUser.metadata && selectedUser.metadata.kyc_data) || null,
           balances: editBalances,
           addresses: editAddresses,
           twoFactorAuth: selectedUser.twoFactorAuth || {},
@@ -776,7 +1019,9 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
     // Sync to Supabase in background
     const newMetadata = {
+      ...(selectedUser.metadata || {}),
       kyc_status: selectedUser.kyc_status || 'pending',
+      kyc_data: selectedUser.kyc_data || (selectedUser.metadata && selectedUser.metadata.kyc_data) || null,
       balances: selectedUser.balances || {},
       addresses: selectedUser.addresses || {},
       twoFactorAuth: updatedUser.twoFactorAuth,
@@ -1538,7 +1783,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     { label: 'Total Users', value: users.length, icon: Users, color: 'bg-blue-500' },
     { label: 'Open Tickets', value: tickets.filter(t => t.status === 'open').length, icon: Headphones, color: 'bg-red-500' },
     { label: 'Active Chats', value: chats.filter(c => c.status === 'active').length, icon: MessageCircle, color: 'bg-green-500' },
-    { label: 'Platform Value', value: `$${totalPlatformValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: DollarSign, color: 'bg-purple-500', isValue: true }
+    { label: 'Platform Value', value: `$${totalPlatformValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: DollarSign, color: 'bg-zinc-700', isValue: true }
   ];
 
   const hasTabAccess = (tab: string) => adminProfile.role === 'super_admin' || adminPermissions.allowed_tabs.includes(tab);
@@ -1567,7 +1812,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                       <p className="text-sm text-gray-900 dark:text-white">{adminProfile.name}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400">{adminProfile.email}</p>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
+                    <div className="w-10 h-10 rounded-full bg-[#18181b] border border-zinc-700/60 shadow-md flex items-center justify-center text-white">
                       <User className="w-5 h-5" />
                     </div>
                   </button>
@@ -1753,17 +1998,32 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                           ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              user.kyc_status === 'verified'
-                                ? 'default'
-                                : user.kyc_status === 'pending'
-                                ? 'secondary'
-                                : 'destructive'
-                            }
+                          <button
+                            type="button"
+                            onClick={() => handleOpenKycModal(user)}
+                            className="inline-flex items-center gap-1.5 cursor-pointer group focus:outline-none"
+                            title="Click to view and edit user's KYC data"
                           >
-                            {user.kyc_status}
-                          </Badge>
+                            <Badge
+                              variant={
+                                user.kyc_status === 'verified'
+                                  ? 'default'
+                                  : user.kyc_status === 'pending'
+                                  ? 'secondary'
+                                  : 'destructive'
+                              }
+                              className={`transition-all group-hover:ring-2 group-hover:ring-zinc-400 ${
+                                user.kyc_status === 'verified'
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                  : user.kyc_status === 'in_review'
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                                  : ''
+                              }`}
+                            >
+                              {user.kyc_status || 'pending'}
+                            </Badge>
+                            <Edit2 className="w-3 h-3 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-opacity opacity-60 group-hover:opacity-100" />
+                          </button>
                         </TableCell>
                         <TableCell className="text-sm">
                           {new Date(user.created_at).toLocaleDateString()}
@@ -1784,6 +2044,10 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                               <DropdownMenuItem onClick={() => handleViewDetails(user)}>
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenKycModal(user)}>
+                                <FileCheck className="w-4 h-4 mr-2 text-indigo-500" />
+                                Review KYC Data
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleLoginAsUser(user)}>
                                 <LogIn className="w-4 h-4 mr-2" />
@@ -2155,14 +2419,14 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setTicketStatusFilter('all')}
                     className={`transition-all ${
                       ticketStatusFilter === 'all'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-zinc-900'
                         : ''
                     }`}
                   >
                     <Badge 
                       variant="outline" 
-                      className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                        ticketStatusFilter === 'all' ? 'bg-gray-100 dark:bg-gray-700' : ''
+                      className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 ${
+                        ticketStatusFilter === 'all' ? 'bg-gray-100 dark:bg-zinc-800' : ''
                       }`}
                     >
                       All ({tickets.length})
@@ -2172,7 +2436,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setTicketStatusFilter('open')}
                     className={`transition-all ${
                       ticketStatusFilter === 'open'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2189,7 +2453,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setTicketStatusFilter('in-progress')}
                     className={`transition-all ${
                       ticketStatusFilter === 'in-progress'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2206,7 +2470,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setTicketStatusFilter('resolved')}
                     className={`transition-all ${
                       ticketStatusFilter === 'resolved'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2223,7 +2487,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setTicketStatusFilter('closed')}
                     className={`transition-all ${
                       ticketStatusFilter === 'closed'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2369,7 +2633,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setChatStatusFilter('all')}
                     className={`transition-all ${
                       chatStatusFilter === 'all'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2386,7 +2650,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setChatStatusFilter('active')}
                     className={`transition-all ${
                       chatStatusFilter === 'active'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2403,7 +2667,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     onClick={() => setChatStatusFilter('resolved')}
                     className={`transition-all ${
                       chatStatusFilter === 'resolved'
-                        ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800'
+                        ? 'ring-2 ring-zinc-500 ring-offset-2 dark:ring-offset-gray-900'
                         : ''
                     }`}
                   >
@@ -2433,7 +2697,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-lg">
+                        <div className="w-12 h-12 rounded-full bg-[#18181b] border border-zinc-700/60 flex items-center justify-center text-white text-lg">
                           {(chat.userName || chat.user_name || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                         </div>
                         <div className="flex-1">
@@ -2599,17 +2863,35 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">KYC Status</p>
-                  <Badge
-                    variant={
-                      selectedUser.kyc_status === 'verified'
-                        ? 'default'
-                        : selectedUser.kyc_status === 'pending'
-                        ? 'secondary'
-                        : 'destructive'
-                    }
-                  >
-                    {selectedUser.kyc_status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        selectedUser.kyc_status === 'verified'
+                          ? 'default'
+                          : selectedUser.kyc_status === 'pending'
+                          ? 'secondary'
+                          : 'destructive'
+                      }
+                      className={
+                        selectedUser.kyc_status === 'verified'
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : selectedUser.kyc_status === 'in_review'
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                          : ''
+                      }
+                    >
+                      {(selectedUser.kyc_status || 'pending').toUpperCase()}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs px-2"
+                      onClick={() => handleOpenKycModal(selectedUser)}
+                    >
+                      <FileCheck className="w-3 h-3 mr-1" />
+                      Manage KYC
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Created</p>
@@ -2626,12 +2908,130 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
               </div>
             </div>
 
-            {/* Total Balance */}
-            <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl p-6 mb-6 text-white">
-              <p className="text-sm opacity-90 mb-1">Total Balance</p>
-              <p className="text-4xl">
-                ${calculateTotalBalance(selectedUser.balances).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
+            {/* Total Balance - Dark Glassmorphic tone #18181b */}
+            <div className="relative overflow-hidden bg-[#18181b] bg-opacity-95 backdrop-blur-2xl border border-zinc-700/60 rounded-2xl p-6 mb-6 text-white shadow-2xl">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-zinc-800/40 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+              <div className="relative z-10">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Balance (USD)</p>
+                <p className="text-4xl font-bold tracking-tight text-white">
+                  ${calculateTotalBalance(selectedUser.balances).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+
+            {/* KYC & Identity Verification Section */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/80 rounded-xl mb-6 border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-zinc-700 dark:text-zinc-200" />
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Identity & KYC Verification</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      selectedUser.kyc_status === 'verified'
+                        ? 'default'
+                        : selectedUser.kyc_status === 'pending'
+                        ? 'secondary'
+                        : 'destructive'
+                    }
+                    className={
+                      selectedUser.kyc_status === 'verified'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : selectedUser.kyc_status === 'in_review'
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : ''
+                    }
+                  >
+                    {(selectedUser.kyc_status || 'pending').toUpperCase()}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleOpenKycModal(selectedUser)}
+                    className="h-7 text-xs px-2.5"
+                  >
+                    <Edit2 className="w-3 h-3 mr-1" />
+                    Review & Edit KYC
+                  </Button>
+                </div>
+              </div>
+
+              {/* KYC Details Preview */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm pt-3 border-t border-gray-200 dark:border-gray-600">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Legal Name</p>
+                  <p className="font-medium text-gray-900 dark:text-white truncate">
+                    {selectedUser.kyc_data?.fullName || selectedUser.kyc_data?.full_name || selectedUser.full_name || 'Not provided'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Document Type</p>
+                  <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    {(selectedUser.kyc_data?.idType || selectedUser.kyc_data?.id_type || 'N/A').replace('_', ' ')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">ID Number</p>
+                  <p className="font-mono text-gray-900 dark:text-white truncate">
+                    {selectedUser.kyc_data?.idNumber || selectedUser.kyc_data?.id_number || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Country</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedUser.kyc_data?.country || selectedUser.kyc_data?.nationality || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Date of Birth</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedUser.kyc_data?.dateOfBirth || selectedUser.kyc_data?.date_of_birth || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Documents Attached</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {selectedUser.kyc_data?.documentFrontUrl || selectedUser.kyc_data?.document_url ? 'Yes (Front attached)' : 'None'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedUser.kyc_data?.rejectionReason && selectedUser.kyc_status === 'rejected' && (
+                <div className="mt-3 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-300">
+                  <span className="font-semibold">Rejection Reason:</span> {selectedUser.kyc_data.rejectionReason}
+                </div>
+              )}
+
+              {/* Quick Status Action Buttons */}
+              <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                <Button
+                  size="sm"
+                  onClick={() => handleQuickUpdateKycStatus(selectedUser, 'verified')}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
+                >
+                  <Check className="w-3.5 h-3.5 mr-1" />
+                  Approve / Verify
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleQuickUpdateKycStatus(selectedUser, 'in_review')}
+                  className="flex-1 h-8 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                >
+                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  Mark In Review
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleOpenKycModal(selectedUser)}
+                  className="flex-1 h-8 text-xs"
+                >
+                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                  Reject / Feedback
+                </Button>
+              </div>
             </div>
 
             {/* Login & Security Details */}
@@ -2746,7 +3146,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                       onChange={(e) => setEditCustomMessageEnabled(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-500 dark:peer-focus:ring-zinc-600 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-zinc-600"></div>
                   </label>
                 </div>
                 {editCustomMessageEnabled && (
@@ -2820,6 +3220,304 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC Review & Management Modal */}
+      {showKycModal && selectedKycUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowKycModal(false)}>
+          <div className="bg-white dark:bg-[#18181b] border border-gray-200 dark:border-zinc-700/60 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-6 sticky top-0 bg-white dark:bg-[#18181b] z-10 pb-4 border-b border-gray-200 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-850 flex items-center justify-center text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700">
+                  <FileCheck className="w-5 h-5 text-zinc-700 dark:text-zinc-200" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">KYC Verification Review</h2>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">User: {selectedKycUser.email} ({selectedKycUser.id.slice(0, 8)}...)</p>
+                </div>
+              </div>
+              <button onClick={() => setShowKycModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+                <span className="text-gray-500 dark:text-zinc-400 text-xl font-bold">×</span>
+              </button>
+            </div>
+
+            {/* Status Selector Bar */}
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-zinc-900/60 rounded-xl border border-gray-200 dark:border-zinc-800">
+              <p className="text-xs font-semibold text-gray-600 dark:text-zinc-400 mb-2">UPDATE STATUS</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setKycForm({ ...kycForm, status: 'verified' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    kycForm.status === 'verified'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 ring-2 ring-emerald-500 ring-offset-1 dark:ring-offset-zinc-900'
+                      : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-gray-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Verified
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycForm({ ...kycForm, status: 'in_review' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    kycForm.status === 'in_review'
+                      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-zinc-900'
+                      : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 border border-gray-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  In Review
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycForm({ ...kycForm, status: 'pending' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    kycForm.status === 'pending'
+                      ? 'bg-zinc-600 text-white shadow-md shadow-zinc-600/20 ring-2 ring-zinc-500 ring-offset-1 dark:ring-offset-zinc-900'
+                      : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Pending
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKycForm({ ...kycForm, status: 'rejected' })}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    kycForm.status === 'rejected'
+                      ? 'bg-red-600 text-white shadow-md shadow-red-600/20 ring-2 ring-red-500 ring-offset-1 dark:ring-offset-zinc-900'
+                      : 'bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-red-50 dark:hover:bg-red-950/30 border border-gray-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Rejected
+                </button>
+              </div>
+            </div>
+
+            {/* KYC Form Fields */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Full Legal Name</label>
+                  <Input
+                    value={kycForm.fullName}
+                    onChange={(e) => setKycForm({ ...kycForm, fullName: e.target.value })}
+                    placeholder="User's legal full name"
+                    className="dark:bg-zinc-800 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Date of Birth</label>
+                  <Input
+                    type="date"
+                    value={kycForm.dateOfBirth}
+                    onChange={(e) => setKycForm({ ...kycForm, dateOfBirth: e.target.value })}
+                    className="dark:bg-zinc-800 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Country / Nationality</label>
+                  <Input
+                    value={kycForm.country}
+                    onChange={(e) => setKycForm({ ...kycForm, country: e.target.value })}
+                    placeholder="e.g. United States, Germany, Nigeria"
+                    className="dark:bg-zinc-800 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Document Type</label>
+                  <select
+                    value={kycForm.idType}
+                    onChange={(e) => setKycForm({ ...kycForm, idType: e.target.value })}
+                    className="w-full h-10 px-3 py-2 rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                  >
+                    <option value="national_id">National ID Card</option>
+                    <option value="passport">International Passport</option>
+                    <option value="drivers_license">Driver's License</option>
+                    <option value="residence_permit">Residence Permit</option>
+                    <option value="other">Other Official Document</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Document ID Number</label>
+                  <Input
+                    value={kycForm.idNumber}
+                    onChange={(e) => setKycForm({ ...kycForm, idNumber: e.target.value })}
+                    placeholder="e.g. A12345678"
+                    className="font-mono dark:bg-zinc-800 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">Residential Address</label>
+                  <Input
+                    value={kycForm.address}
+                    onChange={(e) => setKycForm({ ...kycForm, address: e.target.value })}
+                    placeholder="User's residential street address"
+                    className="dark:bg-zinc-800 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Documents and Previews */}
+              <div className="p-4 bg-gray-50 dark:bg-zinc-900/60 rounded-xl border border-gray-200 dark:border-zinc-800 space-y-3">
+                <p className="text-xs font-semibold text-gray-600 dark:text-zinc-400">UPLOADED DOCUMENTS / PHOTOS</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Front of ID</p>
+                    {kycForm.documentFrontUrl ? (
+                      <div className="relative group border border-gray-300 dark:border-zinc-700 rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 h-28 flex items-center justify-center">
+                        <img src={kycForm.documentFrontUrl} alt="Document Front" className="w-full h-full object-cover" />
+                        <a href={kycForm.documentFrontUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs gap-1 transition-opacity">
+                          <ExternalLink className="w-3.5 h-3.5" /> View Full
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg h-28 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <FileText className="w-6 h-6 mb-1 opacity-50" />
+                        <span>No front image</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Input
+                        value={kycForm.documentFrontUrl.startsWith('data:') ? 'Image uploaded (base64)' : kycForm.documentFrontUrl}
+                        onChange={(e) => setKycForm({ ...kycForm, documentFrontUrl: e.target.value })}
+                        placeholder="Image URL"
+                        className="h-8 text-xs dark:bg-zinc-800 dark:border-zinc-700"
+                      />
+                      <label className="cursor-pointer h-8 px-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 rounded flex items-center justify-center text-xs text-gray-700 dark:text-zinc-200 flex-shrink-0" title="Upload image file">
+                        <Upload className="w-3.5 h-3.5" />
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleAdminKycFileUpload(e, 'front')} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Back of ID (Optional)</p>
+                    {kycForm.documentBackUrl ? (
+                      <div className="relative group border border-gray-300 dark:border-zinc-700 rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 h-28 flex items-center justify-center">
+                        <img src={kycForm.documentBackUrl} alt="Document Back" className="w-full h-full object-cover" />
+                        <a href={kycForm.documentBackUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs gap-1 transition-opacity">
+                          <ExternalLink className="w-3.5 h-3.5" /> View Full
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg h-28 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <FileText className="w-6 h-6 mb-1 opacity-50" />
+                        <span>No back image</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Input
+                        value={kycForm.documentBackUrl.startsWith('data:') ? 'Image uploaded (base64)' : kycForm.documentBackUrl}
+                        onChange={(e) => setKycForm({ ...kycForm, documentBackUrl: e.target.value })}
+                        placeholder="Image URL"
+                        className="h-8 text-xs dark:bg-zinc-800 dark:border-zinc-700"
+                      />
+                      <label className="cursor-pointer h-8 px-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 rounded flex items-center justify-center text-xs text-gray-700 dark:text-zinc-200 flex-shrink-0" title="Upload image file">
+                        <Upload className="w-3.5 h-3.5" />
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleAdminKycFileUpload(e, 'back')} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 font-medium">Selfie / Verification Photo</p>
+                    {kycForm.selfieUrl ? (
+                      <div className="relative group border border-gray-300 dark:border-zinc-700 rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 h-28 flex items-center justify-center">
+                        <img src={kycForm.selfieUrl} alt="Selfie" className="w-full h-full object-cover" />
+                        <a href={kycForm.selfieUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs gap-1 transition-opacity">
+                          <ExternalLink className="w-3.5 h-3.5" /> View Full
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg h-28 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <User className="w-6 h-6 mb-1 opacity-50" />
+                        <span>No selfie uploaded</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Input
+                        value={kycForm.selfieUrl.startsWith('data:') ? 'Image uploaded (base64)' : kycForm.selfieUrl}
+                        onChange={(e) => setKycForm({ ...kycForm, selfieUrl: e.target.value })}
+                        placeholder="Image URL"
+                        className="h-8 text-xs dark:bg-zinc-800 dark:border-zinc-700"
+                      />
+                      <label className="cursor-pointer h-8 px-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 rounded flex items-center justify-center text-xs text-gray-700 dark:text-zinc-200 flex-shrink-0" title="Upload image file">
+                        <Upload className="w-3.5 h-3.5" />
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleAdminKycFileUpload(e, 'selfie')} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rejection Reason (shown to user) */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                  Rejection Reason <span className="text-gray-400 dark:text-zinc-500">(Visible to user on their dashboard if rejected)</span>
+                </label>
+                <Input
+                  value={kycForm.rejectionReason}
+                  onChange={(e) => setKycForm({ ...kycForm, rejectionReason: e.target.value })}
+                  placeholder="e.g. Document image is blurry or expired. Please upload a valid, clear government-issued ID."
+                  className="dark:bg-zinc-800 dark:border-zinc-700"
+                />
+              </div>
+
+              {/* Admin Internal Notes */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                  Admin Internal Notes <span className="text-gray-400 dark:text-zinc-500">(Only visible to administrators)</span>
+                </label>
+                <Textarea
+                  value={kycForm.adminNotes}
+                  onChange={(e) => setKycForm({ ...kycForm, adminNotes: e.target.value })}
+                  placeholder="Internal audit notes regarding compliance verification, sanction check, etc."
+                  rows={2}
+                  className="dark:bg-zinc-800 dark:border-zinc-700 resize-none text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-zinc-800">
+              <Button
+                variant="outline"
+                onClick={() => setShowKycModal(false)}
+                className="flex-1"
+                disabled={isSavingKyc}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleSaveKycData()}
+                disabled={isSavingKyc}
+                className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-lg"
+              >
+                {isSavingKyc ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Saving KYC...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Save KYC Data
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -2902,7 +3600,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                             const newAddress = generateRandomAddress(asset);
                             handleAddressChange(asset, newAddress);
                           }}
-                          className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                          className="text-sm text-zinc-400 dark:text-zinc-300 hover:underline"
                         >
                           Generate Address
                         </button>
@@ -2912,10 +3610,101 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 );
               })}
 
-              <Button size="lg" className="w-full mt-4" onClick={handleUpdateBalance}>
+              <Button size="lg" className="w-full mt-4 bg-[#18181b] hover:bg-zinc-700 text-white border-0" onClick={handleUpdateBalance}>
                 <Check className="w-4 h-4 mr-2" />
                 Update Balance & Addresses
               </Button>
+
+              {/* Quick Token Balance Adjust */}
+              <div className="mt-6 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-4 space-y-3">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                  <Coins className="w-4 h-4"/> Quick Balance Adjust
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Asset</label>
+                    <select
+                      value={quickAdjust.asset}
+                      onChange={e => setQuickAdjust(q => ({ ...q, asset: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                    >
+                      <option value="">Select asset</option>
+                      {assetConfig.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Action</label>
+                    <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                      <button onClick={() => setQuickAdjust(q => ({ ...q, action: 'add' }))} className={`flex-1 py-2 text-sm font-medium transition-colors ${quickAdjust.action==='add'?'bg-green-600 text-white':'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50'}`}>+ Add</button>
+                      <button onClick={() => setQuickAdjust(q => ({ ...q, action: 'deduct' }))} className={`flex-1 py-2 text-sm font-medium transition-colors ${quickAdjust.action==='deduct'?'bg-red-600 text-white':'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50'}`}>- Deduct</button>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</label>
+                    <input type="number" min="0" step="any" value={quickAdjust.amount} onChange={e=>setQuickAdjust(q=>({...q,amount:e.target.value}))} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500" placeholder="0.00"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Note (optional)</label>
+                    <input value={quickAdjust.note} onChange={e=>setQuickAdjust(q=>({...q,note:e.target.value}))} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500" placeholder="Reason..."/>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={!quickAdjust.asset || !quickAdjust.amount || isQuickAdjusting}
+                  onClick={async () => {
+                    if (!quickAdjust.asset || !quickAdjust.amount || !selectedUser) return;
+                    const amt = parseFloat(quickAdjust.amount);
+                    if (isNaN(amt) || amt <= 0) { alert('Enter a valid amount'); return; }
+                    setIsQuickAdjusting(true);
+                    try {
+                      const cur = parseFloat(editBalances[quickAdjust.asset] || '0');
+                      const newBal = quickAdjust.action === 'add' ? cur + amt : Math.max(0, cur - amt);
+                      const updated = { ...editBalances, [quickAdjust.asset]: formatDecimal(newBal) };
+                      setEditBalances(updated);
+                      const note = quickAdjust.note || (quickAdjust.action === 'add' ? `Admin credited ${formatDecimal(amt)} ${quickAdjust.asset}` : `Admin debited ${formatDecimal(amt)} ${quickAdjust.asset}`);
+                      const tx = {
+                        id: `txn_${Date.now()}_${quickAdjust.asset}`, type: quickAdjust.action === 'add' ? 'credit' : 'debit',
+                        asset: quickAdjust.asset, amount: formatDecimal(amt), timestamp: new Date().toISOString(), status: 'completed',
+                        hash: `0x${Math.random().toString(16).substring(2, 66)}`,
+                        to: quickAdjust.action === 'add' ? (editAddresses[quickAdjust.asset] || 'User Wallet') : 'Admin Adjustment',
+                        from: quickAdjust.action === 'add' ? 'Admin' : (editAddresses[quickAdjust.asset] || 'User Wallet'),
+                        fee: '0', gasFee: '0', network: 'Unknown', confirmations: 15, requiredConfirmations: 15, notes: note
+                      };
+                      const allUsers = users.map(u => u.id===selectedUser.id?{...u,balances:updated}:u);
+                      dataService.setItem('xbyte_admin_users', JSON.stringify(allUsers));
+                      setUsers(allUsers);
+                      const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities')||'{}');
+                      if (!userActivities[selectedUser.id]) userActivities[selectedUser.id]=[];
+                      userActivities[selectedUser.id].unshift(tx);
+                      dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
+                      const userWallet = dataService.getItem('xbyte_wallet');
+                      if (userWallet) {
+                        const wd = JSON.parse(userWallet);
+                        if (wd.id === selectedUser.id) {
+                          const updatedWallet = { ...wd, balances: updated, transactions: [tx, ...(wd.transactions||[])] };
+                          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+                          window.dispatchEvent(new CustomEvent('walletDataUpdated',{detail:{walletData:updatedWallet}}));
+                        }
+                      }
+                      const { data: assetRows } = await supabase.from('assets').select('id,symbol');
+                      const { data: walletRow } = await supabase.from('wallets').select('id').eq('user_id',selectedUser.id).eq('is_primary',true).maybeSingle();
+                      if (walletRow && assetRows) {
+                        const a = assetRows.find((ar:any)=>ar.symbol===quickAdjust.asset);
+                        if (a) await supabase.from('wallet_balances').upsert({wallet_id:walletRow.id,asset_id:a.id,balance:newBal},{onConflict:'wallet_id,asset_id'});
+                        await supabase.from('transactions').insert({wallet_id:walletRow.id,user_id:selectedUser.id,type:tx.type,status:'completed',asset_id:a?.id||null,asset_symbol:quickAdjust.asset,amount:amt,from_address:tx.from,to_address:tx.to,network:'Unknown',hash:tx.hash,fee:0,notes:note});
+                      }
+                      setQuickAdjust({asset:'',action:'add',amount:'',note:''});
+                      alert(`✅ ${quickAdjust.action==='add'?'Added':'Deducted'} ${formatDecimal(amt)} ${quickAdjust.asset} ${quickAdjust.action==='add'?'to':'from'} ${selectedUser.email}`);
+                    } catch(e:any){ alert('Error: '+e.message); }
+                    finally { setIsQuickAdjusting(false); }
+                  }}
+                  className={`w-full ${quickAdjust.action==='add'?'bg-green-600 hover:bg-green-700':'bg-red-600 hover:bg-red-700'} text-white border-0`}
+                >
+                  {isQuickAdjusting ? <><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Processing...</> : <>{quickAdjust.action==='add'?'+ Credit':'- Debit'} {quickAdjust.asset||'Token'}</>}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -2949,7 +3738,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     const isPending = activity.status === 'pending' || activity.status === 'processing';
                     
                     return (
-                      <div key={activity.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent hover:border-purple-500 transition-all">
+                      <div key={activity.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent hover:border-zinc-500 transition-all">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-12 h-12 rounded-full ${asset?.color} flex items-center justify-center text-white relative`}>
@@ -2958,17 +3747,18 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                               {activity.type === 'swap' && <RefreshCw className="w-6 h-6" />}
                               {activity.type === 'buy' && <DollarSign className="w-6 h-6" />}
                               {activity.type === 'deposit' && <ArrowDownLeft className="w-6 h-6" />}
-                              {activity.type === 'credit' && <Coins className="w-6 h-6" />}
-                              {activity.type === 'debit' && <Coins className="w-6 h-6" />}
+                              {(activity.type === 'credit' || activity.type === 'admin_credit') && <ArrowDownLeft className="w-6 h-6" />}
+                              {(activity.type === 'debit' || activity.type === 'admin_debit') && <ArrowUpRight className="w-6 h-6" />}
                               {isPending && (
                                 <div className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin" />
                               )}
                             </div>
                             <div>
                               <p className="text-gray-900 dark:text-white">
-                                {activity.type === 'credit' ? 'Credit' : 
-                                 activity.type === 'debit' ? 'Debit' : 
-                                 activity.type.charAt(0).toUpperCase() + activity.type.slice(1)} {activity.asset}
+                                {(() => {
+                                  const t = activity.type.replace(/^admin_/, '');
+                                  return t.charAt(0).toUpperCase() + t.slice(1);
+                                })()} {activity.asset}
                               </p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 {new Date(activity.timestamp).toLocaleString()}
@@ -2976,8 +3766,12 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-gray-900 dark:text-white ${activity.type === 'send' || activity.type === 'debit' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                              {activity.type === 'send' || activity.type === 'debit' ? '-' : '+'}{activity.amount} {activity.asset}
+                            <p className={`text-gray-900 dark:text-white ${
+                              (activity.type === 'send' || activity.type === 'debit' || activity.type === 'admin_debit')
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-green-600 dark:text-green-400'
+                            }`}>
+                              {(activity.type === 'send' || activity.type === 'debit' || activity.type === 'admin_debit') ? '-' : '+'}{activity.amount} {activity.asset}
                             </p>
                             <div className="flex items-center gap-2 justify-end mt-1">
                               <Badge className={getStatusColor(activity.status)}>
@@ -3111,7 +3905,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     key={index} 
                     className={`rounded-xl p-4 ${
                       msg.sender === 'user' 
-                        ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 ml-8' 
+                        ? 'bg-zinc-100 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 ml-8' 
                         : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mr-8'
                     }`}
                   >
@@ -3189,7 +3983,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                       value={ticketResponse}
                       onChange={(e) => setTicketResponse(e.target.value)}
                       placeholder="Type your response to the user..."
-                      className="w-full h-32 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full h-32 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-zinc-500"
                     />
                   </div>
                 </>
@@ -3246,7 +4040,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
             {/* Chat Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-lg">
+                <div className="w-12 h-12 rounded-full bg-[#18181b] border border-zinc-700/60 flex items-center justify-center text-white text-lg">
                   {(selectedChat.userName || selectedChat.user_name || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                 </div>
                 <div>
@@ -3286,7 +4080,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                   >
                     <div className={`max-w-[70%] rounded-2xl px-4 py-3 ${
                       msg.sender === 'admin' 
-                        ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white' 
+                        ? 'bg-[#18181b] border border-zinc-600 text-white' 
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                     }`}>
                       <p className="text-xs mb-1 opacity-70">
@@ -3351,7 +4145,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     }
                   }}
                   placeholder="Type your message..."
-                  className="flex-1 h-12 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 h-12 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-zinc-500"
                 />
                 <Button 
                   size="lg"
@@ -3424,7 +4218,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     <select
                       value={newUser.kyc_status}
                       onChange={(e) => setNewUser({ ...newUser, kyc_status: e.target.value })}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
                     >
                       <option value="pending">Pending</option>
                       <option value="verified">Verified</option>
@@ -3564,7 +4358,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 </h3>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
+                    <div className="w-20 h-20 rounded-full bg-[#18181b] border border-zinc-700/60 flex items-center justify-center text-white">
                       <User className="w-10 h-10" />
                     </div>
                     <div className="flex-1">
@@ -4005,7 +4799,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
                 {/* Buy-specific fields */}
                 {selectedTransaction.type === 'buy' && (
-                  <div className="grid grid-cols-2 gap-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <div>
                       <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Fiat Amount</label>
                       <Input
@@ -4048,7 +4842,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <Button 
                     size="lg" 
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                    className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-md"
                     onClick={() => {
                       handleUpdateTransaction(selectedUser.id, selectedTransaction);
                     }}
@@ -4078,7 +4872,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     <div className="flex items-center gap-3">
                       {selectedTransaction.status === 'pending' || selectedTransaction.status === 'processing' ? (
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                          <div className="w-12 h-12 rounded-full bg-[#18181b] border border-zinc-700/60 flex items-center justify-center">
                             <RefreshCw className="w-6 h-6 text-white animate-spin" />
                           </div>
                         </div>
@@ -4163,7 +4957,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                         <div 
-                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
+                          className="bg-zinc-600 h-2 rounded-full transition-all duration-500"
                           style={{ width: `${Math.min((selectedTransaction.confirmations / selectedTransaction.requiredConfirmations) * 100, 100)}%` }}
                         />
                       </div>
@@ -4237,8 +5031,8 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 </div>
 
                 {/* Admin Actions */}
-                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-                  <p className="text-sm text-purple-900 dark:text-purple-200 mb-4">
+                <div className="bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
+                  <p className="text-sm text-zinc-800 dark:text-zinc-200 mb-4">
                     <Shield className="w-4 h-4 inline mr-2" />
                     Admin Actions
                   </p>
@@ -4408,7 +5202,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                       onChange={(e) => setEditLoginData({ ...editLoginData, twoFactorEnabled: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-500 dark:peer-focus:ring-zinc-600 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-zinc-600"></div>
                     <span className="ml-3 text-sm text-gray-900 dark:text-white">
                       {editLoginData.twoFactorEnabled ? 'Enabled' : 'Disabled'}
                     </span>
@@ -4461,7 +5255,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                           onChange={(e) => setEditLoginData({ ...editLoginData, biometricEnabled: e.target.checked })}
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-zinc-500 dark:peer-focus:ring-zinc-600 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-zinc-600"></div>
                       </label>
                     </div>
                   </div>
@@ -4524,7 +5318,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 </Button>
                 <Button
                   onClick={handleUpdateLoginDetails}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-md"
                 >
                   Save Changes
                 </Button>
@@ -4593,7 +5387,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                     href="https://www.coingecko.com/" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-purple-600 dark:text-purple-400 hover:underline"
+                    className="text-zinc-500 dark:text-zinc-400 hover:underline"
                   >
                     coingecko.com
                   </a>
@@ -4717,7 +5511,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 </Button>
                 <Button
                   onClick={handleSaveCoin}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-md"
                 >
                   {editingCoin ? 'Update Coin' : 'Add Coin'}
                 </Button>

@@ -50,15 +50,17 @@ const getStatusColor = (status: string) => {
 };
 
 const getTransactionTypeLabel = (type: string) => {
-  switch (type) {
+  // Strip admin_ prefix and normalise
+  const normalized = (type || '').replace(/^admin_/, '').replace(/_/g, ' ');
+  switch (normalized) {
     case 'credit':
       return 'Credit';
     case 'debit':
       return 'Debit';
-    case 'gas_fee':
+    case 'gas fee':
       return 'Gas Fee';
     default:
-      return type.charAt(0).toUpperCase() + type.slice(1);
+      return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 };
 
@@ -133,10 +135,10 @@ export default function TransactionReceiptModal({
               <div className="flex items-center gap-3">
                 {transaction.status === 'pending' || transaction.status === 'processing' ? (
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-[#18181b] border border-zinc-700/60 flex items-center justify-center">
                       <Clock className="w-6 h-6 text-white" />
                     </div>
-                    <div className="absolute inset-0 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+                    <div className="absolute inset-0 rounded-full border-2 border-zinc-400 border-t-transparent animate-spin" />
                   </div>
                 ) : transaction.status === 'completed' ? (
                   <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
@@ -179,7 +181,7 @@ export default function TransactionReceiptModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Transaction Type</p>
-                <p className="text-sm text-gray-900 dark:text-white">{getTransactionTypeLabel(transaction.type).replace('Credit', 'Deposit')}</p>
+                <p className="text-sm text-gray-900 dark:text-white">{getTransactionTypeLabel(transaction.type)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Asset</p>

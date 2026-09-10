@@ -27,6 +27,16 @@ export default function App() {
         return 'privacy';
       }
 
+      // Check URL query param or hash for direct navigation
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlView = urlParams.get('view') as View | null;
+      if (urlView && ['landing', 'onboarding', 'import-wallet', 'wallet', 'admin', 'adminLogin', 'login'].includes(urlView)) {
+        return urlView;
+      }
+      if (window.location.hash === '#admin' || window.location.hash === '#adminLogin') {
+        return 'adminLogin';
+      }
+
       // Initialize view based on session state
       const savedView = sessionStorage.getItem('xbyte_current_view') as View | null;
       const existingWallet = storageSync.get('xbyte_wallet');
@@ -136,34 +146,57 @@ export default function App() {
         if (session?.user) {
           console.log('✅ Supabase session active:', session.user.email);
           
-          // Verify if they are trying to access admin view but are not an admin
-          const currentView = sessionStorage.getItem('xbyte_current_view');
-          if (currentView === 'admin' || view === 'admin') {
-            supabase
-              .from('users')
-              .select('is_admin')
-              .eq('id', session.user.id)
-              .maybeSingle()
-              .then(({ data }) => {
-                if (!data || !data.is_admin) {
+          supabase
+            .from('users')
+            .select('is_admin, role')
+            .eq('id', session.user.id)
+            .maybeSingle()
+            .then(({ data: authUserRecord }) => {
+              const isAdminSession = authUserRecord?.is_admin === true || authUserRecord?.role === 'super_admin' || authUserRecord?.role === 'admin';
+              
+              // Verify if they are trying to access admin view but are not an admin
+              const currentView = sessionStorage.getItem('xbyte_current_view');
+              if (currentView === 'admin' || view === 'admin') {
+                if (!isAdminSession) {
                   console.warn('⚠️ Non-admin session tried to access admin dashboard. Redirecting to admin login.');
                   storage.remove('xbyte_admin_session');
                   setView('adminLogin');
                 }
-              });
-          }
+              }
 
-          // Fetch freshest data from database to replace stale cached localStorage
-          import('./utils/supabaseHelpers').then(({ fetchUserWalletFromDB }) => {
-            fetchUserWalletFromDB(session.user.id)
-              .then((freshWallet) => {
-                if (freshWallet) {
-                  setWalletData(freshWallet);
-                  storage.set('xbyte_wallet', freshWallet);
+              // IMPORTANT: Prevent admin session from overwriting the client's wallet with the admin's empty account.
+              storage.get('xbyte_wallet').then((currentStoredWallet) => {
+                if (isAdminSession && currentStoredWallet && currentStoredWallet.id !== session.user.id) {
+                  console.log('🛡️ Preserving user wallet data during admin session:', currentStoredWallet.email);
+                  // Refresh the active target user's wallet instead of the admin's empty profile
+                  import('./utils/supabaseHelpers').then(({ fetchUserWalletFromDB }) => {
+                    fetchUserWalletFromDB(currentStoredWallet.id)
+                      .then((freshWallet) => {
+                        if (freshWallet) {
+                          setWalletData(freshWallet);
+                          storage.set('xbyte_wallet', freshWallet);
+                        }
+                      })
+                      .catch((err) => console.warn('Could not auto-sync target wallet:', err.message));
+                  });
+                  return;
                 }
-              })
-              .catch((err) => console.error('Error auto-syncing wallet with Supabase on mount:', err));
-          });
+
+                const targetUserId = currentStoredWallet?.id || (!isAdminSession ? session.user.id : null);
+                if (targetUserId) {
+                  import('./utils/supabaseHelpers').then(({ fetchUserWalletFromDB }) => {
+                    fetchUserWalletFromDB(targetUserId)
+                      .then((freshWallet) => {
+                        if (freshWallet) {
+                          setWalletData(freshWallet);
+                          storage.set('xbyte_wallet', freshWallet);
+                        }
+                      })
+                      .catch((err) => console.error('Error auto-syncing wallet with Supabase on mount:', err));
+                  });
+                }
+              });
+            });
         } else {
           // If we are in admin view but have no Supabase session, redirect to login
           const currentView = sessionStorage.getItem('xbyte_current_view');
@@ -218,8 +251,12 @@ export default function App() {
     // Listen for storage changes (when admin updates balance from different tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'xbyte_wallet' && e.newValue) {
-        const updatedWallet = JSON.parse(e.newValue);
-        setWalletData(updatedWallet);
+        try {
+          const updatedWallet = JSON.parse(e.newValue);
+          setWalletData(updatedWallet);
+        } catch (err) {
+          console.error('Error parsing updated wallet from storage:', err);
+        }
       }
     };
 
@@ -227,6 +264,8 @@ export default function App() {
     const handleCustomWalletUpdate = ((e: CustomEvent) => {
       if (e.detail && e.detail.walletData) {
         setWalletData(e.detail.walletData);
+        // Ensure storage is atomically synchronized so polling intervals never revert
+        storage.set('xbyte_wallet', e.detail.walletData);
       }
     }) as EventListener;
 

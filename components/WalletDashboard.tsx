@@ -214,27 +214,40 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
     onAssetOverviewChange?.(false);
   };
 
+  // Helper to compare balances numerically to prevent false positives from formatting differences
+  const areBalancesDifferent = (b1: any, b2: any) => {
+    if (!b1 || !b2) return false;
+    const keys = Array.from(new Set([...Object.keys(b1), ...Object.keys(b2)]));
+    return keys.some(k => Math.abs(parseFloat(b1[k] || '0') - parseFloat(b2[k] || '0')) > 1e-8);
+  };
+
   // Sync wallet data with localStorage periodically (in case admin made changes in same browser)
   useEffect(() => {
     const syncInterval = setInterval(() => {
       const storedWallet = dataService.getItem('xbyte_wallet');
       if (storedWallet) {
-        const parsedWallet = JSON.parse(storedWallet);
-        // Check if balances or addresses have changed
-        const balancesChanged = JSON.stringify(parsedWallet.balances) !== JSON.stringify(walletData.balances);
-        const addressesChanged = JSON.stringify(parsedWallet.addresses) !== JSON.stringify(walletData.addresses);
-        const statusChanged = parsedWallet.blocked !== walletData.blocked || parsedWallet.kyc_status !== walletData.kyc_status;
-        const customMsgChanged = parsedWallet.customMessage !== walletData.customMessage || parsedWallet.customMessageEnabled !== walletData.customMessageEnabled;
-        
-        if (balancesChanged || addressesChanged || statusChanged || customMsgChanged) {
-          // Update wallet data if there are changes
-          onUpdateWallet(parsedWallet, false);
+        try {
+          const parsedWallet = JSON.parse(storedWallet);
+          // Only sync if the stored wallet belongs to this exact user
+          if (parsedWallet.id && parsedWallet.id === walletData.id) {
+            const balancesChanged = areBalancesDifferent(parsedWallet.balances, walletData.balances);
+            const addressesChanged = JSON.stringify(parsedWallet.addresses || {}) !== JSON.stringify(walletData.addresses || {});
+            const statusChanged = parsedWallet.blocked !== walletData.blocked || parsedWallet.kyc_status !== walletData.kyc_status;
+            const customMsgChanged = (parsedWallet.customMessage || '') !== (walletData.customMessage || '') || 
+                                     Boolean(parsedWallet.customMessageEnabled) !== Boolean(walletData.customMessageEnabled);
+            
+            if (balancesChanged || addressesChanged || statusChanged || customMsgChanged) {
+              onUpdateWallet(parsedWallet, false);
+            }
+          }
+        } catch (err) {
+          console.error('Error in local storage wallet sync:', err);
         }
       }
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(syncInterval);
-  }, [walletData.balances, walletData.addresses, walletData.blocked, walletData.kyc_status, walletData.customMessage, walletData.customMessageEnabled, onUpdateWallet]);
+  }, [walletData.id, walletData.balances, walletData.addresses, walletData.blocked, walletData.kyc_status, walletData.customMessage, walletData.customMessageEnabled, onUpdateWallet]);
 
   // Sync wallet data with Supabase periodically (in case admin made changes in database from another browser)
   useEffect(() => {
@@ -244,12 +257,13 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
       try {
         const { fetchUserWalletFromDB } = await import('../utils/supabaseHelpers');
         const freshWallet = await fetchUserWalletFromDB(walletData.id);
-        if (freshWallet) {
-          const balancesChanged = JSON.stringify(freshWallet.balances) !== JSON.stringify(walletData.balances);
-          const addressesChanged = JSON.stringify(freshWallet.addresses) !== JSON.stringify(walletData.addresses);
+        if (freshWallet && freshWallet.id === walletData.id) {
+          const balancesChanged = areBalancesDifferent(freshWallet.balances, walletData.balances);
+          const addressesChanged = JSON.stringify(freshWallet.addresses || {}) !== JSON.stringify(walletData.addresses || {});
           const statusChanged = freshWallet.blocked !== walletData.blocked || freshWallet.kyc_status !== walletData.kyc_status;
-          const customMsgChanged = freshWallet.customMessage !== walletData.customMessage || freshWallet.customMessageEnabled !== walletData.customMessageEnabled;
-          const passcodeChanged = JSON.stringify(freshWallet.twoFactorAuth) !== JSON.stringify(walletData.twoFactorAuth);
+          const customMsgChanged = (freshWallet.customMessage || '') !== (walletData.customMessage || '') || 
+                                   Boolean(freshWallet.customMessageEnabled) !== Boolean(walletData.customMessageEnabled);
+          const passcodeChanged = JSON.stringify(freshWallet.twoFactorAuth || {}) !== JSON.stringify(walletData.twoFactorAuth || {});
           
           if (balancesChanged || addressesChanged || statusChanged || customMsgChanged || passcodeChanged) {
             console.log('🔄 Pulled fresh wallet updates from Supabase database.');
@@ -257,7 +271,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
           }
         }
       } catch (err) {
-        console.error('Error polling Supabase for user updates:', err);
+        console.warn('DB polling update skipped:', err instanceof Error ? err.message : err);
       }
     }, 5000); // Check every 5 seconds
 
@@ -399,83 +413,96 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
 
       {currentPage === 'home' && (
         <div className="container mx-auto px-4 py-6 pb-24 max-w-4xl">
-          {/* Portfolio Summary */}
-        <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-3xl p-8 mb-6 text-white">
-          <p className="text-sm opacity-90 mb-2">
-            Total Balance
-            {pricesLoading && <span className="ml-2 text-xs opacity-75">(updating...)</span>}
-          </p>
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-5xl">
-              {showBalance ? `$${calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
-            </h2>
-            <button
-              onClick={() => setShowBalance(!showBalance)}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              aria-label={showBalance ? 'Hide balance' : 'Show balance'}
-            >
-              {showBalance ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
-            </button>
-            <button
-              onClick={() => {
-                setIsRefreshing(true);
-                const storedWallet = dataService.getItem('xbyte_wallet');
-                if (storedWallet) {
-                  onUpdateWallet(JSON.parse(storedWallet));
-                }
-                // Keep animation running for at least 800ms for visual feedback
-                setTimeout(() => {
-                  setIsRefreshing(false);
-                }, 800);
-              }}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
-              aria-label="Refresh balance"
-              title="Refresh balance"
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={`w-6 h-6 transition-transform ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
+          {/* Portfolio Summary - Dark Glassmorphic #18181b Tone */}
+          <div className="relative overflow-hidden rounded-3xl p-8 mb-6 text-white bg-[#18181b] bg-opacity-95 backdrop-blur-2xl border border-zinc-700/50 shadow-2xl">
+            {/* Ambient glassmorphic lighting */}
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-zinc-700/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-zinc-800/35 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="relative z-10">
+              <p className="text-sm text-zinc-400 mb-2 font-medium flex items-center">
+                Total Balance
+                {pricesLoading && <span className="ml-2 text-xs text-zinc-500">(updating...)</span>}
+              </p>
+              <div className="flex items-center gap-3 mb-6">
+                <h2 className="text-5xl font-bold tracking-tight text-white">
+                  {showBalance ? `$${calculateTotal().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
+                </h2>
+                <button
+                  onClick={() => setShowBalance(!showBalance)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors text-zinc-300 hover:text-white"
+                  aria-label={showBalance ? 'Hide balance' : 'Show balance'}
+                >
+                  {showBalance ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsRefreshing(true);
+                    const storedWallet = dataService.getItem('xbyte_wallet');
+                    if (storedWallet) {
+                      try {
+                        const parsed = JSON.parse(storedWallet);
+                        if (parsed.id === walletData.id) {
+                          onUpdateWallet(parsed, false);
+                        }
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+                    // Keep animation running for at least 800ms for visual feedback
+                    setTimeout(() => {
+                      setIsRefreshing(false);
+                    }, 800);
+                  }}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors text-zinc-300 hover:text-white disabled:opacity-50"
+                  aria-label="Refresh balance"
+                  title="Refresh balance"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`w-6 h-6 transition-transform ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-3 sm:gap-4">
+                <button
+                  onClick={() => setCurrentPage('send')}
+                  className="flex flex-col items-center gap-2 p-3.5 bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700/40 rounded-2xl transition-all active:scale-95 text-zinc-100 shadow-sm"
+                >
+                  <div className="w-12 h-12 rounded-full bg-zinc-700/50 flex items-center justify-center text-white">
+                    <ArrowUpRight className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium">Send</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage('receive')}
+                  className="flex flex-col items-center gap-2 p-3.5 bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700/40 rounded-2xl transition-all active:scale-95 text-zinc-100 shadow-sm"
+                >
+                  <div className="w-12 h-12 rounded-full bg-zinc-700/50 flex items-center justify-center text-white">
+                    <ArrowDownLeft className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium">Receive</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage('swap')}
+                  className="flex flex-col items-center gap-2 p-3.5 bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700/40 rounded-2xl transition-all active:scale-95 text-zinc-100 shadow-sm"
+                >
+                  <div className="w-12 h-12 rounded-full bg-zinc-700/50 flex items-center justify-center text-white">
+                    <RefreshCw className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium">Swap</span>
+                </button>
+                <button
+                  onClick={() => setCurrentPage('buy')}
+                  className="flex flex-col items-center gap-2 p-3.5 bg-zinc-800/60 hover:bg-zinc-800 border border-zinc-700/40 rounded-2xl transition-all active:scale-95 text-zinc-100 shadow-sm"
+                >
+                  <div className="w-12 h-12 rounded-full bg-zinc-700/50 flex items-center justify-center text-white">
+                    <ShoppingCart className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium">Buy</span>
+                </button>
+              </div>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-4 gap-4">
-            <button
-              onClick={() => setCurrentPage('send')}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all active:scale-95"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <ArrowUpRight className="w-6 h-6" />
-              </div>
-              <span className="text-sm">Send</span>
-            </button>
-            <button
-              onClick={() => setCurrentPage('receive')}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all active:scale-95"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <ArrowDownLeft className="w-6 h-6" />
-              </div>
-              <span className="text-sm">Receive</span>
-            </button>
-            <button
-              onClick={() => setCurrentPage('swap')}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all active:scale-95"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <RefreshCw className="w-6 h-6" />
-              </div>
-              <span className="text-sm">Swap</span>
-            </button>
-            <button
-              onClick={() => setCurrentPage('buy')}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all active:scale-95"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6" />
-              </div>
-              <span className="text-sm">Buy</span>
-            </button>
-          </div>
-        </div>
 
         {/* Tabs */}
         <Tabs defaultValue="assets" className="w-full">
@@ -599,9 +626,11 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
                   else if (tx.type === 'swap') Icon = RefreshCw;
                   else if (tx.type === 'buy') Icon = DollarSign;
                   else if (tx.type === 'deposit') Icon = ArrowDownLeft;
+                  else if (tx.type === 'credit' || tx.type === 'admin_credit') Icon = ArrowDownLeft;
+                  else if (tx.type === 'debit' || tx.type === 'admin_debit') Icon = ArrowUpRight;
 
                   return (
-                    <div key={tx.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent hover:border-purple-500 transition-all">
+                    <div key={tx.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent hover:border-zinc-500 transition-all">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-12 h-12 rounded-full ${asset?.color} flex items-center justify-center text-white relative`}>
@@ -611,15 +640,21 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
                             )}
                           </div>
                           <div>
-                            <p className="text-gray-900 dark:text-white capitalize">{tx.type} {tx.asset}</p>
+                            <p className="text-gray-900 dark:text-white capitalize">
+                              {tx.type.replace(/^admin_/, '').replace(/_/g, ' ')} {tx.asset}
+                            </p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               {new Date(tx.timestamp).toLocaleString()}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-gray-900 dark:text-white ${tx.type === 'send' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                            {tx.type === 'send' ? '-' : '+'}{tx.amount} {tx.asset}
+                          <p className={`text-gray-900 dark:text-white ${
+                            (tx.type === 'send' || tx.type === 'debit' || tx.type === 'admin_debit')
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-green-600 dark:text-green-400'
+                          }`}>
+                            {(tx.type === 'send' || tx.type === 'debit' || tx.type === 'admin_debit') ? '-' : '+'}{tx.amount} {tx.asset}
                           </p>
                           <div className="flex items-center gap-2 justify-end mt-1">
                             <Badge className={getStatusColor(tx.status)}>
@@ -785,7 +820,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
               }}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
                 currentPage === 'home'
-                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
+                  ? 'text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800/60'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -800,7 +835,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
               }}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
                 currentPage === 'swap'
-                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
+                  ? 'text-zinc-900 dark:text-white bg-zinc-200 dark:bg-zinc-800 font-semibold'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -815,7 +850,7 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
               }}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors relative ${
                 currentPage === 'support'
-                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
+                  ? 'text-zinc-900 dark:text-white bg-zinc-200 dark:bg-zinc-800 font-semibold'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
@@ -837,14 +872,14 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
               }}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
                 currentPage === 'settings'
-                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
+                  ? 'text-zinc-900 dark:text-white bg-zinc-200 dark:bg-zinc-800 font-semibold'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               {walletData.avatar ? (
                 <img src={walletData.avatar} alt="Avatar" className="w-5 h-5 rounded-full object-cover" />
               ) : (
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white text-xs">
+                <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white text-xs">
                   {(walletData.fullName || 'U').charAt(0).toUpperCase()}
                 </div>
               )}

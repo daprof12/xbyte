@@ -32,7 +32,8 @@ export default function NotificationModal({ onClose, onOpenSupport, walletId }: 
     loadNotifications();
   }, [walletId]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read && n.is_visible !== false).length;
+  const visibleNotifications = notifications.filter(n => n.is_visible !== false);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -65,7 +66,7 @@ export default function NotificationModal({ onClose, onOpenSupport, walletId }: 
         </div>
 
         <div className="space-y-3 mb-6">
-          {notifications.length === 0 ? (
+          {visibleNotifications.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Bell className="w-8 h-8 text-gray-400 dark:text-gray-500" />
@@ -76,7 +77,7 @@ export default function NotificationModal({ onClose, onOpenSupport, walletId }: 
               </p>
             </div>
           ) : (
-            notifications.map((notification) => (
+            visibleNotifications.map((notification) => (
               <div
                 key={notification.id}
                 className={`p-4 rounded-xl border ${

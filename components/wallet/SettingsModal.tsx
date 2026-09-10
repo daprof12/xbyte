@@ -40,6 +40,128 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
   const [twoFAError, setTwoFAError] = useState('');
   const [passcodeStep, setPasscodeStep] = useState<'enter' | 'confirm'>('enter');
 
+  // KYC Verification State
+  const initialKyc = walletData.kyc_data || (walletData.metadata && walletData.metadata.kyc_data) || {};
+  const [kycStatus, setKycStatus] = useState<string>(walletData.kyc_status || walletData.metadata?.kyc_status || 'pending');
+  const [kycFullName, setKycFullName] = useState(initialKyc.fullName || initialKyc.full_name || walletData.fullName || '');
+  const [kycDob, setKycDob] = useState(initialKyc.dateOfBirth || initialKyc.date_of_birth || '');
+  const [kycCountry, setKycCountry] = useState(initialKyc.country || initialKyc.nationality || '');
+  const [kycIdType, setKycIdType] = useState(initialKyc.idType || initialKyc.id_type || 'national_id');
+  const [kycIdNumber, setKycIdNumber] = useState(initialKyc.idNumber || initialKyc.id_number || '');
+  const [kycAddress, setKycAddress] = useState(initialKyc.address || '');
+  const [kycDocumentFront, setKycDocumentFront] = useState(initialKyc.documentFrontUrl || initialKyc.document_url || '');
+  const [kycDocumentBack, setKycDocumentBack] = useState(initialKyc.documentBackUrl || initialKyc.document_back_url || '');
+  const [kycSelfie, setKycSelfie] = useState(initialKyc.selfieUrl || initialKyc.selfie_url || '');
+  const [kycSubmitting, setKycSubmitting] = useState(false);
+  const [kycSubmitSuccess, setKycSubmitSuccess] = useState(false);
+  const [kycRejectionReason, setKycRejectionReason] = useState(initialKyc.rejectionReason || initialKyc.rejection_reason || '');
+
+  const handleKycFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'front' | 'back' | 'selfie') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        if (field === 'front') setKycDocumentFront(result);
+        if (field === 'back') setKycDocumentBack(result);
+        if (field === 'selfie') setKycSelfie(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmitKyc = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!kycFullName.trim()) {
+      alert('Please enter your full legal name');
+      return;
+    }
+    if (!kycDob) {
+      alert('Please select your date of birth');
+      return;
+    }
+    if (!kycCountry.trim()) {
+      alert('Please enter your country of residence');
+      return;
+    }
+    if (!kycIdNumber.trim()) {
+      alert('Please enter your document ID number');
+      return;
+    }
+
+    setKycSubmitting(true);
+    try {
+      const newKycData = {
+        ...initialKyc,
+        fullName: kycFullName,
+        full_name: kycFullName,
+        dateOfBirth: kycDob,
+        date_of_birth: kycDob,
+        country: kycCountry,
+        nationality: kycCountry,
+        idType: kycIdType,
+        id_type: kycIdType,
+        idNumber: kycIdNumber,
+        id_number: kycIdNumber,
+        address: kycAddress,
+        documentFrontUrl: kycDocumentFront,
+        document_url: kycDocumentFront,
+        documentBackUrl: kycDocumentBack,
+        document_back_url: kycDocumentBack,
+        selfieUrl: kycSelfie,
+        selfie_url: kycSelfie,
+        status: 'pending',
+        submitted_at: new Date().toISOString()
+      };
+
+      const updatedWallet = {
+        ...walletData,
+        kyc_status: 'pending',
+        kyc_data: newKycData
+      };
+
+      const { supabase } = await import('../../utils/supabaseClient');
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: kycFullName,
+          metadata: {
+            ...(walletData.metadata || {}),
+            kyc_status: 'pending',
+            kyc_data: newKycData,
+            balances: walletData.balances || {},
+            addresses: walletData.addresses || {},
+            twoFactorAuth: walletData.twoFactorAuth || {},
+            customMessage: walletData.customMessage || '',
+            customMessageEnabled: walletData.customMessageEnabled || false
+          }
+        })
+        .eq('id', walletData.id);
+
+      if (error) {
+        console.error('Error submitting KYC:', error.message);
+        alert(`Error submitting verification: ${error.message}`);
+      } else {
+        setKycStatus('pending');
+        setKycSubmitSuccess(true);
+        if (onUpdateWallet) {
+          onUpdateWallet(updatedWallet);
+        }
+        dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+        window.dispatchEvent(new CustomEvent('walletDataUpdated', {
+          detail: { walletData: updatedWallet }
+        }));
+        setTimeout(() => setKycSubmitSuccess(false), 4000);
+        alert('KYC verification submitted successfully! Your documents are now under review.');
+      }
+    } catch (err: any) {
+      console.error('Error in KYC submission:', err);
+      alert(`Submission error: ${err.message || err}`);
+    } finally {
+      setKycSubmitting(false);
+    }
+  };
+
   const mnemonic = atob(walletData.mnemonic_encrypted).split(' ');
 
   const handleCopyAddress = async (asset: string, address: string) => {
@@ -365,8 +487,9 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
     <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-6 mx-auto">
       <div>
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="kyc">Verification</TabsTrigger>
             <TabsTrigger value="addresses">Addresses</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="about">About</TabsTrigger>
@@ -380,13 +503,13 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover" />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white text-3xl">
+                  <div className="w-24 h-24 rounded-full bg-[#18181b] border border-zinc-700/60 shadow-xl flex items-center justify-center text-white text-3xl font-bold">
                     {fullName.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <button
                   onClick={handleAvatarChange}
-                  className="absolute bottom-0 right-0 p-2 bg-purple-600 rounded-full text-white hover:bg-purple-700"
+                  className="absolute bottom-0 right-0 p-2 bg-[#18181b] border border-zinc-700 rounded-full text-white hover:bg-zinc-800 shadow-md"
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -463,7 +586,264 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
             </div>
           </TabsContent>
 
-          {/* Addresses Tab */}
+          {/* Verification (KYC) Tab */}
+          <TabsContent value="kyc" className="space-y-6 mt-4">
+            {/* Status Header Banner */}
+            <div className={`p-4 rounded-xl border flex items-start gap-3 ${
+              kycStatus === 'verified'
+                ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+                : kycStatus === 'in_review'
+                ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800'
+                : kycStatus === 'rejected'
+                ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200 dark:border-zinc-700'
+            }`}>
+              {kycStatus === 'verified' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+              ) : kycStatus === 'in_review' ? (
+                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              ) : kycStatus === 'rejected' ? (
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Shield className="w-5 h-5 text-zinc-600 dark:text-zinc-400 flex-shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {kycStatus === 'verified'
+                      ? 'Identity Verified'
+                      : kycStatus === 'in_review'
+                      ? 'Verification In Review'
+                      : kycStatus === 'rejected'
+                      ? 'Verification Rejected'
+                      : 'Identity Verification Required'}
+                  </h4>
+                  <Badge
+                    variant={
+                      kycStatus === 'verified'
+                        ? 'default'
+                        : kycStatus === 'pending'
+                        ? 'secondary'
+                        : 'destructive'
+                    }
+                    className={
+                      kycStatus === 'verified'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : kycStatus === 'in_review'
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : ''
+                    }
+                  >
+                    {kycStatus.toUpperCase()}
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-zinc-300 mt-1">
+                  {kycStatus === 'verified'
+                    ? 'Your account has undergone full compliance and identity verification. You have unrestricted access to all wallet services.'
+                    : kycStatus === 'in_review'
+                    ? 'Our compliance team is currently reviewing your submitted identification. This usually completes within 1-2 business days.'
+                    : kycStatus === 'rejected'
+                    ? (kycRejectionReason ? `Reason: ${kycRejectionReason}. Please correct the issues and resubmit below.` : 'Your documents could not be verified. Please review your details and re-upload valid identification.')
+                    : 'Submit your legal identity information and government document to enable higher transaction volumes, instant withdrawals, and advanced features.'}
+                </p>
+              </div>
+            </div>
+
+            {/* KYC Submission / Update Form */}
+            <form onSubmit={handleSubmitKyc} className="p-4 bg-gray-50 dark:bg-gray-700/60 rounded-xl border border-gray-200 dark:border-gray-600 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  {kycStatus === 'verified' ? 'Verified Information' : 'Submit Verification Details'}
+                </h3>
+                {kycSubmitSuccess && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> Saved successfully
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Full Legal Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={kycFullName}
+                    onChange={(e) => setKycFullName(e.target.value)}
+                    placeholder="As shown on official ID"
+                    required
+                    disabled={kycStatus === 'verified'}
+                    className="dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Date of Birth <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="date"
+                    value={kycDob}
+                    onChange={(e) => setKycDob(e.target.value)}
+                    required
+                    disabled={kycStatus === 'verified'}
+                    className="dark:bg-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Country / Nationality <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={kycCountry}
+                    onChange={(e) => setKycCountry(e.target.value)}
+                    placeholder="e.g. United States, Germany, Nigeria"
+                    required
+                    disabled={kycStatus === 'verified'}
+                    className="dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Document Type <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={kycIdType}
+                    onChange={(e) => setKycIdType(e.target.value)}
+                    disabled={kycStatus === 'verified'}
+                    className="w-full h-10 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
+                  >
+                    <option value="national_id">National ID Card</option>
+                    <option value="passport">International Passport</option>
+                    <option value="drivers_license">Driver's License</option>
+                    <option value="residence_permit">Residence Permit</option>
+                    <option value="other">Other Official Document</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    ID / Document Number <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={kycIdNumber}
+                    onChange={(e) => setKycIdNumber(e.target.value)}
+                    placeholder="Document identification number"
+                    required
+                    disabled={kycStatus === 'verified'}
+                    className="font-mono dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Residential Address
+                  </label>
+                  <Input
+                    value={kycAddress}
+                    onChange={(e) => setKycAddress(e.target.value)}
+                    placeholder="Full street address and city"
+                    disabled={kycStatus === 'verified'}
+                    className="dark:bg-gray-800"
+                  />
+                </div>
+              </div>
+
+              {/* Upload Identification Documents */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Document Photos / Uploads
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Front */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Front of ID Document</p>
+                    {kycDocumentFront ? (
+                      <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-24 bg-black/5 flex items-center justify-center">
+                        <img src={kycDocumentFront} alt="Front ID" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg h-24 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <Upload className="w-5 h-5 mb-1 opacity-50" />
+                        <span>Upload front photo</span>
+                      </div>
+                    )}
+                    {kycStatus !== 'verified' && (
+                      <label className="cursor-pointer block text-center py-1.5 px-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 transition-colors">
+                        Choose File
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleKycFileUpload(e, 'front')} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Back */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Back of ID Document</p>
+                    {kycDocumentBack ? (
+                      <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-24 bg-black/5 flex items-center justify-center">
+                        <img src={kycDocumentBack} alt="Back ID" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg h-24 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <Upload className="w-5 h-5 mb-1 opacity-50" />
+                        <span>Upload back photo</span>
+                      </div>
+                    )}
+                    {kycStatus !== 'verified' && (
+                      <label className="cursor-pointer block text-center py-1.5 px-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 transition-colors">
+                        Choose File
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleKycFileUpload(e, 'back')} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Selfie */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Selfie with ID / Proof</p>
+                    {kycSelfie ? (
+                      <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden h-24 bg-black/5 flex items-center justify-center">
+                        <img src={kycSelfie} alt="Selfie" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg h-24 flex flex-col items-center justify-center text-xs text-gray-400">
+                        <Camera className="w-5 h-5 mb-1 opacity-50" />
+                        <span>Upload selfie</span>
+                      </div>
+                    )}
+                    {kycStatus !== 'verified' && (
+                      <label className="cursor-pointer block text-center py-1.5 px-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 transition-colors">
+                        Choose File
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleKycFileUpload(e, 'selfie')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {kycStatus !== 'verified' && (
+                <Button
+                  type="submit"
+                  disabled={kycSubmitting}
+                  className="w-full bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-lg mt-4 h-11"
+                >
+                  {kycSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Submitting Verification...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      {kycStatus === 'rejected' ? 'Resubmit Verification' : 'Submit for Verification'}
+                    </>
+                  )}
+                </Button>
+              )}
+            </form>
+          </TabsContent>
           <TabsContent value="addresses" className="space-y-4 mt-4">
             {chains.map((chain) => (
               <div key={chain.symbol} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
@@ -507,7 +887,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
             {/* Two-Factor Authentication */}
             <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
               <div className="flex items-center gap-2 mb-2">
-                <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Shield className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                 <h3 className="text-lg text-gray-900 dark:text-white">Two-Factor Authentication</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -536,14 +916,14 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                         onClick={() => handleChangePreferredMethod('passcode')}
                         className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
                           twoFAMethod === 'passcode'
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                            ? 'border-zinc-500 bg-zinc-100 dark:bg-zinc-800'
                             : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                             twoFAMethod === 'passcode'
-                              ? 'bg-purple-500'
+                              ? 'bg-[#18181b] text-white border border-zinc-700/60'
                               : 'bg-gray-200 dark:bg-gray-700'
                           }`}>
                             <Lock className={`w-5 h-5 ${twoFAMethod === 'passcode' ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
@@ -553,7 +933,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                             <p className="text-xs text-gray-600 dark:text-gray-400">Use numeric passcode</p>
                           </div>
                           {twoFAMethod === 'passcode' && (
-                            <Check className="w-5 h-5 text-purple-500" />
+                            <Check className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                           )}
                         </div>
                       </button>
@@ -564,14 +944,14 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                         onClick={() => handleChangePreferredMethod('biometric')}
                         className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
                           twoFAMethod === 'biometric'
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                            ? 'border-zinc-500 bg-zinc-100 dark:bg-zinc-800'
                             : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                             twoFAMethod === 'biometric'
-                              ? 'bg-purple-500'
+                              ? 'bg-[#18181b] text-white border border-zinc-700/60'
                               : 'bg-gray-200 dark:bg-gray-700'
                           }`}>
                             <Fingerprint className={`w-5 h-5 ${twoFAMethod === 'biometric' ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`} />
@@ -581,7 +961,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                             <p className="text-xs text-gray-600 dark:text-gray-400">Fingerprint or face recognition</p>
                           </div>
                           {twoFAMethod === 'biometric' && (
-                            <Check className="w-5 h-5 text-purple-500" />
+                            <Check className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
                           )}
                         </div>
                       </button>
@@ -624,7 +1004,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                   </div>
                   <Button
                     onClick={() => setShow2FASetup(true)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    className="w-full bg-[#18181b] hover:bg-zinc-800 text-white border border-zinc-700/60 shadow-lg"
                   >
                     <Shield className="w-4 h-4 mr-2" />
                     Enable Two-Factor Authentication
@@ -659,7 +1039,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                                   key={index}
                                   className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
                                     active
-                                      ? 'bg-purple-600 border-purple-600 scale-110 shadow-md shadow-purple-500/30'
+                                      ? 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white scale-110 shadow-md shadow-zinc-500/30'
                                       : 'border-gray-300 dark:border-gray-600 bg-transparent'
                                   }`}
                                 />
@@ -758,7 +1138,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                             <Button 
                               type="button"
                               onClick={handleSetupPasscode} 
-                              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium"
+                              className="flex-1 bg-[#18181b] hover:bg-zinc-800 text-white font-medium border border-zinc-700/60 shadow-md"
                             >
                               Save
                             </Button>
@@ -770,7 +1150,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
                         <button
                           onClick={handleSetupBiometric}
                           disabled={biometricProcessing}
-                          className="w-full p-12 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-2xl transition-all disabled:opacity-50"
+                          className="w-full p-12 bg-[#18181b] hover:bg-zinc-800 border border-zinc-700/60 rounded-2xl transition-all disabled:opacity-50 shadow-xl"
                         >
                           <div className="relative">
                             <Fingerprint className={`w-24 h-24 text-white mx-auto ${biometricProcessing ? 'animate-pulse' : ''}`} />
@@ -867,7 +1247,7 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
           <TabsContent value="about" className="space-y-4 mt-4">
             <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-xl bg-[#18181b] border border-zinc-700/60 shadow-lg flex items-center justify-center">
                   <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M3 3L10 3L10 10L3 10L3 3Z" fill="white"/>
                     <path d="M3 14L10 21" stroke="white" strokeWidth="2" strokeLinecap="round"/>
@@ -898,13 +1278,13 @@ export default function SettingsModal({ walletData, onClose, onLogout, onUpdateW
             </div>
 
             <div className="text-center space-y-2">
-              <Button variant="link" className="text-purple-600 dark:text-purple-400">
+              <Button variant="link" className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
                 Terms of Service
               </Button>
-              <Button variant="link" className="text-purple-600 dark:text-purple-400">
+              <Button variant="link" className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
                 Privacy Policy
               </Button>
-              <Button variant="link" className="text-purple-600 dark:text-purple-400">
+              <Button variant="link" className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white">
                 Support & Help
               </Button>
             </div>
