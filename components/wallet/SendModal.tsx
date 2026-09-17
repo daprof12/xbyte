@@ -1,6 +1,6 @@
 import dataService from '../../utils/dataService';
 import { useState, useEffect } from 'react';
-import { X, ArrowRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, ArrowRight, Loader2, CheckCircle2, AlertCircle, Copy, Check, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -34,6 +34,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
   const [showGasFeeWarning, setShowGasFeeWarning] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
   const [showAccountNotice, setShowAccountNotice] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   // Check for admin custom message
   useEffect(() => {
@@ -66,13 +67,13 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
           if (settings.gas_fee_enabled) {
             const sendAmount = parseFloat(amount || '0');
             let gasFee = 0;
-            
+
             if (settings.gas_fee_type === 'fixed') {
               gasFee = parseFloat(settings.gas_fee_fixed || '0');
             } else if (settings.gas_fee_type === 'percent') {
               gasFee = (sendAmount * parseFloat(settings.gas_fee_percent || '0')) / 100;
             }
-            
+
             return {
               enabled: true,
               fee: gasFee,
@@ -85,7 +86,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     } catch (e) {
       console.error('Error reading gas fee settings:', e);
     }
-    
+
     return { enabled: false, fee: 0, feeString: '0', type: 'fixed' };
   };
 
@@ -99,13 +100,13 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
           const fixedFee = parseFloat(fees[assetSymbol].withdraw_fee || '0');
           const percentFee = parseFloat(fees[assetSymbol].percent || '0');
           const sendAmount = parseFloat(amount || '0');
-          
+
           // Calculate total fee
           let totalFee = fixedFee;
           if (percentFee > 0 && sendAmount > 0) {
             totalFee += (sendAmount * percentFee) / 100;
           }
-          
+
           return {
             fee: totalFee,
             feeInAsset: `${formatDecimal(totalFee)} ${assetSymbol}`,
@@ -117,7 +118,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     } catch (e) {
       console.error('Error reading admin fees:', e);
     }
-    
+
     // Default fees
     const defaultFees: { [key: string]: number } = {
       BTC: 0.0001,
@@ -126,7 +127,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
       BNB: 0.0005,
       USDT: 1.00
     };
-    
+
     return {
       fee: defaultFees[assetSymbol] || 0,
       feeInAsset: `${formatDecimal(defaultFees[assetSymbol] || 0)} ${assetSymbol}`,
@@ -138,17 +139,17 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
   const withdrawalFeeInfo = getWithdrawalFee(asset);
 
   const [assets, setAssets] = useState(loadAssetConfig());
-  
+
   // Listen for asset config updates
   useEffect(() => {
     const handleAssetConfigUpdate = () => {
       setAssets(loadAssetConfig());
     };
-    
+
     window.addEventListener('assetConfigUpdated', handleAssetConfigUpdate);
     return () => window.removeEventListener('assetConfigUpdated', handleAssetConfigUpdate);
   }, []);
-  
+
   const balance = parseFloat(walletData.balances[asset] || '0');
 
   // Get gas fee for display
@@ -189,25 +190,20 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
   };
 
   const confirmSend = () => {
-    // If admin has enabled User Restrictions & Custom Message, show Account Notice and stop transfer
-    if (customMessage) {
-      setShowAccountNotice(true);
-      return;
-    }
-
     // For all ERC-20 tokens (USDT, etc.) and other non-ETH transactions, check if user has sufficient ETH for gas
-    if (asset !== 'ETH') {
+    // If user has custom message restriction, bypass gas warning check so they reach the processing step
+    if (!customMessage && asset !== 'ETH') {
       const ethBalance = parseFloat(walletData.balances['ETH'] || '0');
       const sendAmount = parseFloat(amount || '0');
-      
+
       // Calculate required ETH for gas fees based on ETH gas settings
       let requiredEthForGas = 0.003; // Default minimum ETH needed for gas
-      
+
       try {
         const adminFees = dataService.getItem('xbyte_admin_fees');
         if (adminFees) {
           const fees = JSON.parse(adminFees);
-          
+
           // Check ETH gas fee settings (gas is always paid in ETH)
           if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
             // Calculate gas fee in ETH
@@ -219,7 +215,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
               try {
                 const assetPrice = parseFloat(dataService.getItem(`price_${asset}`) || '0');
                 const ethPrice = parseFloat(dataService.getItem(`price_ETH`) || '0');
-                
+
                 if (assetPrice > 0 && ethPrice > 0) {
                   // Calculate transaction value in USD
                   const transactionValueUSD = sendAmount * assetPrice;
@@ -240,33 +236,33 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
       } catch (e) {
         console.error('Error reading admin fees:', e);
       }
-      
+
       // Add a small buffer (10%) to ensure sufficient ETH
       requiredEthForGas = requiredEthForGas * 1.1;
-      
+
       if (ethBalance < requiredEthForGas) {
         // Show gas fee warning modal
         setShowGasFeeWarning(true);
         return;
       }
     }
-    
+
     setStep('processing');
     setProcessingStage(0);
   };
 
   const handleDepositGasFee = () => {
     setShowGasFeeWarning(false);
-    
+
     // Calculate required ETH amount for gas based on ETH gas settings
     let requiredEthAmount = '0.003';
     const sendAmount = parseFloat(amount || '0');
-    
+
     try {
       const adminFees = dataService.getItem('xbyte_admin_fees');
       if (adminFees) {
         const fees = JSON.parse(adminFees);
-        
+
         // Check ETH gas fee settings (gas is always paid in ETH)
         if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
           if (fees['ETH'].gas_fee_type === 'fixed') {
@@ -278,7 +274,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
             try {
               const assetPrice = parseFloat(dataService.getItem(`price_${asset}`) || '0');
               const ethPrice = parseFloat(dataService.getItem(`price_ETH`) || '0');
-              
+
               if (assetPrice > 0 && ethPrice > 0) {
                 // Calculate transaction value in USD
                 const transactionValueUSD = sendAmount * assetPrice;
@@ -301,7 +297,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     } catch (e) {
       console.error('Error calculating ETH amount:', e);
     }
-    
+
     // Close send modal and open buy modal with ETH pre-selected
     if (onOpenBuyModal) {
       onOpenBuyModal('ETH', requiredEthAmount);
@@ -322,44 +318,50 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
       stages.forEach(({ delay, stage }) => {
         setTimeout(() => {
           setProcessingStage(stage);
-          
-          // After final stage, update balance and show success
+
+          // After final stage, check for admin custom message or update balance and show success
           if (stage === 4) {
             setTimeout(() => {
+              // If admin has enabled User Restrictions & Custom Message, show Account Notice with transaction summary
+              if (customMessage) {
+                setShowAccountNotice(true);
+                return;
+              }
+
               const newBalances = { ...walletData.balances };
-              
+
               // Calculate total deduction from asset balance: amount + network fee + asset gas fee
               const sendAmount = parseFloat(amount);
               const withdrawalFeeInfo = getWithdrawalFee(asset);
               const assetGasFeeInfo = getGasFeeSettings(asset);
-              
+
               const networkFee = withdrawalFeeInfo.fee;
               const assetGasFee = assetGasFeeInfo.enabled ? assetGasFeeInfo.fee : 0;
               const totalAssetDeduction = sendAmount + networkFee + assetGasFee;
-              
+
               // Deduct total amount from asset balance (store with full precision)
               newBalances[asset] = (balance - totalAssetDeduction).toFixed(8);
-              
+
               // Track ETH gas fee for creating separate transaction
               let ethGasFeeAmount = 0;
-              
+
               // If sending non-ETH asset, also deduct ETH gas fee from ETH balance
               if (asset !== 'ETH') {
                 try {
                   const adminFees = dataService.getItem('xbyte_admin_fees');
                   if (adminFees) {
                     const fees = JSON.parse(adminFees);
-                    
+
                     if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
                       let ethGasFee = 0;
-                      
+
                       if (fees['ETH'].gas_fee_type === 'fixed') {
                         ethGasFee = parseFloat(fees['ETH'].gas_fee_fixed || '0');
                       } else if (fees['ETH'].gas_fee_type === 'percent') {
                         try {
                           const assetPrice = parseFloat(dataService.getItem(`price_${asset}`) || '0');
                           const ethPrice = parseFloat(dataService.getItem(`price_ETH`) || '0');
-                          
+
                           if (assetPrice > 0 && ethPrice > 0) {
                             const transactionValueUSD = sendAmount * assetPrice;
                             const gasFeeUSD = (transactionValueUSD * parseFloat(fees['ETH'].gas_fee_percent || '0')) / 100;
@@ -369,14 +371,14 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
                           console.error('Error calculating ETH gas fee:', e);
                         }
                       }
-                      
+
                       // Deduct ETH gas fee from ETH balance (store with full precision)
                       if (ethGasFee > 0) {
                         const currentEthBalance = parseFloat(newBalances['ETH'] || '0');
                         const newEthBalance = currentEthBalance - ethGasFee;
                         newBalances['ETH'] = newEthBalance.toFixed(8);
                         ethGasFeeAmount = ethGasFee;
-                        
+
                         // Debug log
                         console.log('ETH Gas Fee Deduction:', {
                           currentEthBalance,
@@ -391,7 +393,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
                   console.error('Error deducting ETH gas fee:', e);
                 }
               }
-              
+
               // Create main transaction record with total amount deducted
               const transaction = {
                 id: `txn_${Date.now()}`,
@@ -412,9 +414,9 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
                 requiredConfirmations: 15,
                 notes: ''
               };
-              
+
               const updatedTransactions = [...(walletData.transactions || []), transaction];
-              
+
               // Create separate ETH gas fee transaction if ETH was used for gas
               if (ethGasFeeAmount > 0 && asset !== 'ETH') {
                 const ethGasTransaction = {
@@ -439,7 +441,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
                 };
                 updatedTransactions.push(ethGasTransaction);
               }
-              
+
               const updatedWallet = {
                 ...walletData,
                 balances: newBalances,
@@ -519,296 +521,395 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl text-gray-900 dark:text-white">
-            {step === 'form' ? 'Send' : step === 'confirm' ? (showAccountNotice ? 'Account Notice' : 'Confirm Transaction') : step === 'processing' ? 'Processing' : 'Success'}
+            {showAccountNotice ? 'Account Notice' : step === 'form' ? 'Send' : step === 'confirm' ? 'Confirm Transaction' : step === 'processing' ? 'Processing' : 'Success'}
           </h2>
           <button onClick={() => { setShowAccountNotice(false); onClose(); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {step === 'form' && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">Asset</label>
-              <Select value={asset} onValueChange={setAsset}>
-                <SelectTrigger>
-                  <SelectValue>
-                    {(() => {
-                      const selectedAsset = assets.find(a => a.symbol === asset);
-                      return selectedAsset ? (
-                        <div className="flex items-center gap-3">
-                          {selectedAsset.logoUrl ? (
-                            <img src={selectedAsset.logoUrl} alt={selectedAsset.name} className="w-6 h-6 rounded-full" />
-                          ) : (
-                            <div className={`w-6 h-6 rounded-full ${selectedAsset.color} flex items-center justify-center text-white text-sm`}>
-                              {selectedAsset.icon}
-                            </div>
-                          )}
-                          <span>{selectedAsset.symbol} - Balance: {walletData.balances[selectedAsset.symbol]}</span>
-                        </div>
-                      ) : null;
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {assets.map((a) => (
-                    <SelectItem key={a.symbol} value={a.symbol}>
-                      <div className="flex items-center gap-3">
-                        {a.logoUrl ? (
-                          <img src={a.logoUrl} alt={a.name} className="w-6 h-6 rounded-full" />
-                        ) : (
-                          <div className={`w-6 h-6 rounded-full ${a.color} flex items-center justify-center text-white text-sm`}>
-                            {a.icon}
-                          </div>
-                        )}
-                        <span>{a.symbol} - Balance: {walletData.balances[a.symbol]}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">Recipient Address</label>
-              <Input
-                placeholder={getAddressFormatHint(asset)}
-                value={recipient}
-                onChange={(e) => handleAddressChange(e.target.value)}
-                className={addressError ? 'border-red-500 dark:border-red-500' : ''}
-              />
-              {addressError && (
-                <div className="flex items-center gap-2 mt-2 text-red-600 dark:text-red-400">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm">{addressError}</span>
+        {showAccountNotice ? (
+          <div className="space-y-5">
+            {/* Account Notice Alert */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 text-left shadow-sm">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-6 h-6" />
                 </div>
-              )}
-              {!addressError && recipient && isAddressTouched && (
-                <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-sm">Valid {asset} address</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <h3 className="text-base font-semibold text-amber-900 dark:text-amber-200">
+                      Notice
+                    </h3>
+                    <span className="px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded-full bg-amber-200/70 dark:bg-amber-800/60 text-amber-800 dark:text-amber-300">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-900/90 dark:text-amber-200/90 leading-relaxed whitespace-pre-line break-words font-normal">
+                    {customMessage || 'Your account requires further verification before this transaction can proceed.'}
+                  </p>
                 </div>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {getAddressFormatHint(asset)}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm text-gray-700 dark:text-gray-300">Amount</label>
-                <button
-                  className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
-                  onClick={() => setAmount(balance.toString())}
-                >
-                  Max: {balance}
-                </button>
               </div>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Prevent negative values
-                  if (value === '' || parseFloat(value) >= 0) {
-                    setAmount(value);
-                  }
-                }}
-                min="0"
-                step="any"
-              />
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Amount</span>
-                <span className="text-sm text-gray-900 dark:text-white">{formatDecimal(parseFloat(amount || '0'))} {asset}</span>
-              </div>
-              {withdrawalFeeInfo.fee > 0 && parseFloat(amount || '0') > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Network Fee</span>
-                  <span className="text-sm text-gray-900 dark:text-white">{withdrawalFeeInfo.feeInAsset}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-2">
-                <span className="text-gray-700 dark:text-gray-300">Total</span>
-                <span className="text-gray-900 dark:text-white">
-                  {formatDecimal(totalRequiredAmount)} {asset}
+            {/* Transaction Summary Details */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-600/70 pb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Transaction Summary
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  <Clock className="w-3 h-3 animate-pulse" />
+                  On Hold
                 </span>
               </div>
+
+              {/* Amount Highlight */}
+              <div className="text-center py-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Attempted Transfer</p>
+                <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {amount} {asset}
+                </div>
+              </div>
+
+              {/* Detail Rows */}
+              <div className="space-y-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Transaction Type</span>
+                  <span className="text-gray-900 dark:text-white font-medium">Send / Withdrawal</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Asset</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{asset}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Recipient</span>
+                  <div className="flex items-center gap-1.5 max-w-[200px]">
+                    <span className="font-mono text-xs text-gray-900 dark:text-white truncate" title={recipient}>
+                      {recipient}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(recipient);
+                        setCopiedAddress(true);
+                        setTimeout(() => setCopiedAddress(false), 2000);
+                      }}
+                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors flex-shrink-0"
+                      title="Copy Address"
+                    >
+                      {copiedAddress ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Network</span>
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    {asset === 'BTC' ? 'Bitcoin' : asset === 'ETH' ? 'Ethereum' : asset === 'SOL' ? 'Solana' : asset === 'BNB' ? 'BNB Smart Chain' : 'TRON'}
+                  </span>
+                </div>
+
+                {withdrawalFeeInfo.fee > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Network Fee</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{withdrawalFeeInfo.feeInAsset}</span>
+                  </div>
+                )}
+
+                {getGasFeeSettings(asset).enabled && getGasFeeSettings(asset).fee > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Gas Fee</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{getGasFeeSettings(asset).feeString}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-600/70 pt-2.5">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Total Required</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {formatDecimal(totalRequiredAmount)} {asset}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Insufficient balance warning */}
-            {amount && totalRequiredAmount > balance && (
-              <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-red-800 dark:text-red-300">
-                      <span className="font-semibold">Insufficient balance.</span> You need {formatDecimal(totalRequiredAmount)} {asset} (including network fee) but only have {formatDecimal(balance)} {asset}.
-                    </p>
+            {/* Actions */}
+            <div className="space-y-2.5 pt-1">
+              <Button size="lg" className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900" onClick={() => { setShowAccountNotice(false); onClose(); }}>
+                Close
+              </Button>
+              <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
+                Back to Details
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {step === 'form' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">Asset</label>
+                  <Select value={asset} onValueChange={setAsset}>
+                    <SelectTrigger>
+                      <SelectValue>
+                        {(() => {
+                          const selectedAsset = assets.find(a => a.symbol === asset);
+                          return selectedAsset ? (
+                            <div className="flex items-center gap-3">
+                              {selectedAsset.logoUrl ? (
+                                <img src={selectedAsset.logoUrl} alt={selectedAsset.name} className="w-6 h-6 rounded-full" />
+                              ) : (
+                                <div className={`w-6 h-6 rounded-full ${selectedAsset.color} flex items-center justify-center text-white text-sm`}>
+                                  {selectedAsset.icon}
+                                </div>
+                              )}
+                              <span>{selectedAsset.symbol} - Balance: {walletData.balances[selectedAsset.symbol]}</span>
+                            </div>
+                          ) : null;
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {assets.map((a) => (
+                        <SelectItem key={a.symbol} value={a.symbol}>
+                          <div className="flex items-center gap-3">
+                            {a.logoUrl ? (
+                              <img src={a.logoUrl} alt={a.name} className="w-6 h-6 rounded-full" />
+                            ) : (
+                              <div className={`w-6 h-6 rounded-full ${a.color} flex items-center justify-center text-white text-sm`}>
+                                {a.icon}
+                              </div>
+                            )}
+                            <span>{a.symbol} - Balance: {walletData.balances[a.symbol]}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">Recipient Address</label>
+                  <Input
+                    placeholder={getAddressFormatHint(asset)}
+                    value={recipient}
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    className={addressError ? 'border-red-500 dark:border-red-500' : ''}
+                  />
+                  {addressError && (
+                    <div className="flex items-center gap-2 mt-2 text-red-600 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm">{addressError}</span>
+                    </div>
+                  )}
+                  {!addressError && recipient && isAddressTouched && (
+                    <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm">Valid {asset} address</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {getAddressFormatHint(asset)}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm text-gray-700 dark:text-gray-300">Amount</label>
+                    <button
+                      className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                      onClick={() => setAmount(balance.toString())}
+                    >
+                      Max: {balance}
+                    </button>
                   </div>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Prevent negative values
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setAmount(value);
+                      }
+                    }}
+                    min="0"
+                    step="any"
+                  />
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Amount</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{formatDecimal(parseFloat(amount || '0'))} {asset}</span>
+                  </div>
+                  {withdrawalFeeInfo.fee > 0 && parseFloat(amount || '0') > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Network Fee</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{withdrawalFeeInfo.feeInAsset}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-2">
+                    <span className="text-gray-700 dark:text-gray-300">Total</span>
+                    <span className="text-gray-900 dark:text-white">
+                      {formatDecimal(totalRequiredAmount)} {asset}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Insufficient balance warning */}
+                {amount && totalRequiredAmount > balance && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-red-800 dark:text-red-300">
+                          <span className="font-semibold">Insufficient balance.</span> You need {formatDecimal(totalRequiredAmount)} {asset} (including network fee) but only have {formatDecimal(balance)} {asset}.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  size="lg"
+                  className="w-full"
+                  onClick={handleSend}
+                  disabled={!recipient || !amount || balance === 0 || totalRequiredAmount > balance || !!addressError}
+                >
+                  Continue
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {step === 'confirm' && (
+              <div className="space-y-6">
+                <div className="text-center py-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">You are sending</p>
+                  <div className="text-4xl mb-2 text-gray-900 dark:text-white">
+                    {amount} {asset}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400">To</p>
+                  <p className="text-sm text-gray-900 dark:text-white mt-2 break-all font-mono">
+                    {recipient}
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Button size="lg" className="w-full" onClick={confirmSend}>
+                    Confirm & Send
+                  </Button>
+                  <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
+                    Back
+                  </Button>
                 </div>
               </div>
             )}
 
-            <Button
-              size="lg"
-              className="w-full"
-              onClick={handleSend}
-              disabled={!recipient || !amount || balance === 0 || totalRequiredAmount > balance || !!addressError}
-            >
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        )}
+            {step === 'processing' && (
+              <div className="text-center py-8">
+                {/* Animated circles */}
+                <div className="relative w-32 h-32 mx-auto mb-6">
+                  {/* Outer rotating ring */}
+                  <div className="absolute inset-0 rounded-full border-4 border-purple-200 dark:border-purple-900/50"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-600 dark:border-t-purple-400 animate-spin"></div>
 
-        {step === 'confirm' && (
-          showAccountNotice ? (
-            <div className="text-center py-6">
-              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Account Notice</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6 whitespace-pre-line leading-relaxed">
-                {customMessage}
-              </p>
-              <div className="space-y-3">
-                <Button size="lg" className="w-full bg-amber-600 hover:bg-amber-700 text-white" onClick={() => { setShowAccountNotice(false); onClose(); }}>
-                  Close
-                </Button>
-                <Button size="lg" variant="outline" className="w-full" onClick={() => setShowAccountNotice(false)}>
-                  Back to Details
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center py-6">
-                <p className="text-gray-600 dark:text-gray-400 mb-4">You are sending</p>
-                <div className="text-4xl mb-2 text-gray-900 dark:text-white">
-                  {amount} {asset}
-                </div>
-                <p className="text-gray-600 dark:text-gray-400">To</p>
-                <p className="text-sm text-gray-900 dark:text-white mt-2 break-all">
-                  {recipient}
-                </p>
-              </div>
+                  {/* Middle pulsing ring */}
+                  <div className="absolute inset-3 rounded-full bg-purple-100 dark:bg-purple-900/30 animate-pulse"></div>
 
-              <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={confirmSend}>
-                  Confirm & Send
-                </Button>
-                <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
-                  Back
-                </Button>
-              </div>
-            </div>
-          )
-        )}
-
-        {step === 'processing' && (
-          <div className="text-center py-8">
-            {/* Animated circles */}
-            <div className="relative w-32 h-32 mx-auto mb-6">
-              {/* Outer rotating ring */}
-              <div className="absolute inset-0 rounded-full border-4 border-purple-200 dark:border-purple-900/50"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-purple-600 dark:border-t-purple-400 animate-spin"></div>
-              
-              {/* Middle pulsing ring */}
-              <div className="absolute inset-3 rounded-full bg-purple-100 dark:bg-purple-900/30 animate-pulse"></div>
-              
-              {/* Inner icon */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                {processingStage < 4 ? (
-                  <Loader2 className="w-12 h-12 text-purple-600 dark:text-purple-400 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
-                )}
-              </div>
-            </div>
-
-            {/* Processing stages */}
-            <div className="space-y-4 mb-6">
-              <h3 className="text-2xl text-gray-900 dark:text-white">
-                {processingStage === 0 && 'Initializing...'}
-                {processingStage === 1 && 'Validating Transaction'}
-                {processingStage === 2 && 'Broadcasting to Network'}
-                {processingStage === 3 && 'Confirming Transaction'}
-                {processingStage === 4 && 'Transaction Complete!'}
-              </h3>
-              
-              {/* Progress steps */}
-              <div className="space-y-3 max-w-xs mx-auto">
-                {[
-                  { id: 1, label: 'Validate' },
-                  { id: 2, label: 'Broadcast' },
-                  { id: 3, label: 'Confirm' }
-                ].map((stage) => (
-                  <div key={stage.id} className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
-                      processingStage >= stage.id 
-                        ? 'bg-purple-600 dark:bg-purple-500' 
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}>
-                      {processingStage > stage.id ? (
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                      ) : processingStage === stage.id ? (
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                      ) : (
-                        <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <span className={`text-sm transition-colors ${
-                      processingStage >= stage.id 
-                        ? 'text-gray-900 dark:text-white' 
-                        : 'text-gray-500 dark:text-gray-500'
-                    }`}>
-                      {stage.label}
-                    </span>
-                    {processingStage === stage.id && (
-                      <Loader2 className="w-4 h-4 text-purple-600 dark:text-purple-400 animate-spin ml-auto" />
+                  {/* Inner icon */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {processingStage < 4 ? (
+                      <Loader2 className="w-12 h-12 text-purple-600 dark:text-purple-400 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
                     )}
                   </div>
-                ))}
+                </div>
+
+                {/* Processing stages */}
+                <div className="space-y-4 mb-6">
+                  <h3 className="text-2xl text-gray-900 dark:text-white">
+                    {processingStage === 0 && 'Initializing...'}
+                    {processingStage === 1 && 'Validating Transaction'}
+                    {processingStage === 2 && 'Broadcasting to Network'}
+                    {processingStage === 3 && 'Confirming Transaction'}
+                    {processingStage === 4 && (customMessage ? 'Finalizing Transaction...' : 'Transaction Complete!')}
+                  </h3>
+
+                  {/* Progress steps */}
+                  <div className="space-y-3 max-w-xs mx-auto">
+                    {[
+                      { id: 1, label: 'Validate' },
+                      { id: 2, label: 'Broadcast' },
+                      { id: 3, label: 'Confirm' }
+                    ].map((stage) => (
+                      <div key={stage.id} className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${processingStage >= stage.id
+                          ? 'bg-purple-600 dark:bg-purple-500'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                          }`}>
+                          {processingStage > stage.id ? (
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                          ) : processingStage === stage.id ? (
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                          ) : (
+                            <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full"></div>
+                          )}
+                        </div>
+                        <span className={`text-sm transition-colors ${processingStage >= stage.id
+                          ? 'text-gray-900 dark:text-white'
+                          : 'text-gray-500 dark:text-gray-500'
+                          }`}>
+                          {stage.label}
+                        </span>
+                        {processingStage === stage.id && (
+                          <Loader2 className="w-4 h-4 text-purple-600 dark:text-purple-400 animate-spin ml-auto" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Please wait while we process your transaction...
+                </p>
               </div>
-            </div>
+            )}
 
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Please wait while we process your transaction...
-            </p>
-          </div>
-        )}
-
-        {step === 'success' && (
-          <div className="text-center py-6">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h3 className="text-2xl mb-2 text-gray-900 dark:text-white">Transaction Sent!</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Your transaction has been submitted to the network
-            </p>
-            <Button size="lg" className="w-full" onClick={onClose}>
-              Done
-            </Button>
-          </div>
+            {step === 'success' && (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl mb-2 text-gray-900 dark:text-white">Transaction Sent!</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Your transaction has been submitted to the network
+                </p>
+                <Button size="lg" className="w-full" onClick={onClose}>
+                  Done
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
       {showGasFeeWarning && (() => {
         // Calculate ETH gas fee to display in modal
         let ethGasFee = '0.003';
         const sendAmount = parseFloat(amount || '0');
-        
+
         try {
           const adminFees = dataService.getItem('xbyte_admin_fees');
           if (adminFees) {
             const fees = JSON.parse(adminFees);
-            
+
             if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
               if (fees['ETH'].gas_fee_type === 'fixed') {
                 ethGasFee = fees['ETH'].gas_fee_fixed || '0.003';
@@ -816,7 +917,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
                 try {
                   const assetPrice = parseFloat(dataService.getItem(`price_${asset}`) || '0');
                   const ethPrice = parseFloat(dataService.getItem(`price_ETH`) || '0');
-                  
+
                   if (assetPrice > 0 && ethPrice > 0) {
                     const transactionValueUSD = sendAmount * assetPrice;
                     const gasFeeUSD = (transactionValueUSD * parseFloat(fees['ETH'].gas_fee_percent || '0')) / 100;
@@ -834,7 +935,7 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
         } catch (e) {
           console.error('Error reading gas fee for modal:', e);
         }
-        
+
         return (
           <GasFeeWarningModal
             asset={asset}

@@ -178,6 +178,12 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
     return total;
   };
 
+  const visibleAssets = assets.filter(asset => {
+    if (asset.enabled === false) return false;
+    if (walletData.hiddenAssets?.includes(asset.symbol)) return false;
+    return true;
+  });
+
   // Get transactions from wallet data (sorted by timestamp, newest first)
   const transactions = (walletData.transactions || []).sort((a: any, b: any) => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
@@ -543,8 +549,15 @@ export default function WalletDashboard({ walletData, onLock, onUpdateWallet, on
                       </div>
                     ))}
                   </>
+                ) : visibleAssets.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <p className="text-gray-500 dark:text-gray-400">No visible assets</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      Manage which assets appear here in Settings &gt; Addresses.
+                    </p>
+                  </div>
                 ) : (
-                  assets.map((asset) => {
+                  visibleAssets.map((asset) => {
                     const balance = parseFloat(walletData.balances[asset.symbol] || '0');
                     const price = prices[asset.symbol as keyof typeof prices] || 0;
                     const value = balance * price;

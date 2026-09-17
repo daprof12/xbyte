@@ -1,6 +1,6 @@
 import dataService from '../../utils/dataService';
 import { useState, useEffect } from 'react';
-import { X, ArrowDown, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, ArrowDown, RefreshCw, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -178,14 +178,9 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
   };
 
   const confirmSwap = () => {
-    // If admin has enabled User Restrictions & Custom Message, show Account Notice and stop swap
-    if (customMessage) {
-      setShowAccountNotice(true);
-      return;
-    }
-
     // For all swaps involving non-ETH assets, check if user has sufficient ETH for gas
-    if (fromAsset !== 'ETH' || toAsset !== 'ETH') {
+    // If user has custom message restriction, bypass gas warning check so they reach the processing step
+    if (!customMessage && (fromAsset !== 'ETH' || toAsset !== 'ETH')) {
       const ethBalance = parseFloat(walletData.balances['ETH'] || '0');
       const swapAmount = parseFloat(fromAmount || '0');
       
@@ -312,9 +307,15 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         setTimeout(() => {
           setProcessingStage(stage);
           
-          // After final stage, update balance and show success
+          // After final stage, check for admin custom message or update balance and show success
           if (stage === 4) {
             setTimeout(() => {
+              // If admin has enabled User Restrictions & Custom Message, show Account Notice with swap summary
+              if (customMessage) {
+                setShowAccountNotice(true);
+                return;
+              }
+
               const newBalances = { ...walletData.balances };
               
               // Calculate total deduction from fromAsset balance: amount + network fee + asset gas fee
@@ -516,14 +517,114 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl text-gray-900 dark:text-white">
-            {step === 'form' ? 'Swap' : step === 'confirm' ? (showAccountNotice ? 'Account Notice' : 'Confirm Swap') : step === 'processing' ? 'Processing' : 'Success'}
+            {showAccountNotice ? 'Account Notice' : step === 'form' ? 'Swap' : step === 'confirm' ? 'Confirm Swap' : step === 'processing' ? 'Processing' : 'Success'}
           </h2>
           <button onClick={() => { setShowAccountNotice(false); onClose(); }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {step === 'form' && (
+        {showAccountNotice ? (
+          <div className="space-y-5">
+            {/* Account Notice Alert */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl p-5 text-left shadow-sm">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center flex-shrink-0 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <h3 className="text-base font-semibold text-amber-900 dark:text-amber-200">
+                      User Restriction Notice
+                    </h3>
+                    <span className="px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider rounded-full bg-amber-200/70 dark:bg-amber-800/60 text-amber-800 dark:text-amber-300">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-900/90 dark:text-amber-200/90 leading-relaxed whitespace-pre-line break-words font-normal">
+                    {customMessage || 'Your account requires further verification before this swap can proceed.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Swap Summary Details */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-600/70 pb-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Swap Summary
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  <Clock className="w-3 h-3 animate-pulse" />
+                  On Hold
+                </span>
+              </div>
+
+              {/* Swap Route Highlight */}
+              <div className="text-center py-2">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {fromAmount} {fromAsset}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  ≈ ${((parseFloat(fromAmount || '0') * (prices[fromAsset] || 0))).toFixed(2)} USD
+                </p>
+                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center mx-auto my-2 text-gray-600 dark:text-gray-300">
+                  <ArrowDown className="w-4 h-4" />
+                </div>
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  {toAmount} {toAsset}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  ≈ ${((parseFloat(toAmount || '0') * (prices[toAsset] || 0))).toFixed(2)} USD
+                </p>
+              </div>
+
+              {/* Detail Rows */}
+              <div className="space-y-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Transaction Type</span>
+                  <span className="text-gray-900 dark:text-white font-medium">Token Swap</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Exchange Rate</span>
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    1 {fromAsset} = {rate.toFixed(8)} {toAsset}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Network Fee</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{swapFeeInfo.feeInAsset}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Provider</span>
+                  <span className="text-gray-900 dark:text-white font-medium">1inch Aggregator</span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-600/70 pt-2.5">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Total Spent</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {formatDecimal(totalRequiredAmount)} {fromAsset}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2.5 pt-1">
+              <Button size="lg" className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900" onClick={() => { setShowAccountNotice(false); onClose(); }}>
+                Close
+              </Button>
+              <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
+                Back to Swap
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {step === 'form' && (
           <div className="space-y-4">
             {/* From */}
             <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
@@ -742,71 +843,51 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
         )}
 
         {step === 'confirm' && (
-          showAccountNotice ? (
+          <div className="space-y-6">
             <div className="text-center py-6">
-              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              <p className="text-gray-600 dark:text-gray-400 mb-4">You are swapping</p>
+              <div className="text-3xl mb-2 text-gray-900 dark:text-white">
+                {fromAmount} {fromAsset}
               </div>
-              <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Account Notice</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6 whitespace-pre-line leading-relaxed">
-                {customMessage}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                ≈ ${((parseFloat(fromAmount) * (prices[fromAsset] || 0))).toFixed(2)} USD
               </p>
-              <div className="space-y-3">
-                <Button size="lg" className="w-full bg-amber-600 hover:bg-amber-700 text-white" onClick={() => { setShowAccountNotice(false); onClose(); }}>
-                  Close
-                </Button>
-                <Button size="lg" variant="outline" className="w-full" onClick={() => setShowAccountNotice(false)}>
-                  Back to Details
-                </Button>
+              <ArrowDown className="w-6 h-6 mx-auto my-4 text-gray-400" />
+              <div className="text-3xl mb-2 text-gray-900 dark:text-white">
+                {toAmount} {toAsset}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                ≈ ${((parseFloat(toAmount) * (prices[toAsset] || 0))).toFixed(2)} USD
+              </p>
+            </div>
+
+            {/* Swap Details */}
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Exchange Rate</span>
+                <span className="text-gray-900 dark:text-white">
+                  1 {fromAsset} = {rate.toFixed(8)} {toAsset}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Network Fee</span>
+                <span className="text-gray-900 dark:text-white">{swapFeeInfo.feeInAsset}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Provider</span>
+                <span className="text-gray-900 dark:text-white">1inch Aggregator</span>
               </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center py-6">
-                <p className="text-gray-600 dark:text-gray-400 mb-4">You are swapping</p>
-                <div className="text-3xl mb-2 text-gray-900 dark:text-white">
-                  {fromAmount} {fromAsset}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  ≈ ${((parseFloat(fromAmount) * (prices[fromAsset] || 0))).toFixed(2)} USD
-                </p>
-                <ArrowDown className="w-6 h-6 mx-auto my-4 text-gray-400" />
-                <div className="text-3xl mb-2 text-gray-900 dark:text-white">
-                  {toAmount} {toAsset}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  ≈ ${((parseFloat(toAmount) * (prices[toAsset] || 0))).toFixed(2)} USD
-                </p>
-              </div>
 
-              {/* Swap Details */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Exchange Rate</span>
-                  <span className="text-gray-900 dark:text-white">
-                    1 {fromAsset} = {rate.toFixed(8)} {toAsset}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Network Fee</span>
-                  <span className="text-gray-900 dark:text-white">{swapFeeInfo.feeInAsset}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Provider</span>
-                  <span className="text-gray-900 dark:text-white">1inch Aggregator</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={confirmSwap}>
-                  Confirm Swap
-                </Button>
-                <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
-                  Back
-                </Button>
-              </div>
+            <div className="space-y-3">
+              <Button size="lg" className="w-full" onClick={confirmSwap}>
+                Confirm Swap
+              </Button>
+              <Button size="lg" variant="outline" className="w-full" onClick={() => { setShowAccountNotice(false); setStep('form'); }}>
+                Back
+              </Button>
             </div>
-          )
+          </div>
         )}
 
 
@@ -838,7 +919,7 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
                 {processingStage === 1 && 'Finding Best Route'}
                 {processingStage === 2 && 'Executing Swap'}
                 {processingStage === 3 && 'Confirming Transaction'}
-                {processingStage === 4 && 'Swap Complete!'}
+                {processingStage === 4 && (customMessage ? 'Finalizing Swap...' : 'Swap Complete!')}
               </h3>
               
               {/* Progress steps */}
@@ -883,19 +964,21 @@ export default function SwapModal({ walletData, onClose, onUpdateWallet, selecte
           </div>
         )}
 
-        {step === 'success' && (
-          <div className="text-center py-6">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <RefreshCw className="w-8 h-8 text-green-600 dark:text-green-400" />
-            </div>
-            <h3 className="text-2xl mb-2 text-gray-900 dark:text-white">Swap Complete!</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}
-            </p>
-            <Button size="lg" className="w-full" onClick={onClose}>
-              Done
-            </Button>
-          </div>
+            {step === 'success' && (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <RefreshCw className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-2xl mb-2 text-gray-900 dark:text-white">Swap Complete!</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Successfully swapped {fromAmount} {fromAsset} for {toAmount} {toAsset}
+                </p>
+                <Button size="lg" className="w-full" onClick={onClose}>
+                  Done
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
       {showGasFeeWarning && (() => {

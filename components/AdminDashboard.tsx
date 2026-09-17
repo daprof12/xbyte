@@ -11,6 +11,7 @@ import { Textarea } from './ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
+import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
   DropdownMenu,
@@ -55,6 +56,9 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
   const [editBalances, setEditBalances] = useState<any>({});
   const [editAddresses, setEditAddresses] = useState<any>({});
   const [addressErrors, setAddressErrors] = useState<{[key: string]: string}>({});
+  const [cardAdjustAmounts, setCardAdjustAmounts] = useState<{ [symbol: string]: string }>({});
+  const [adjustingAsset, setAdjustingAsset] = useState<string | null>(null);
+  const [copiedModalAddress, setCopiedModalAddress] = useState<string | null>(null);
   const [quickAdjust, setQuickAdjust] = useState({ asset: '', action: 'add', amount: '', note: '' });
   const [isQuickAdjusting, setIsQuickAdjusting] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
@@ -656,10 +660,125 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
   const handleEditBalance = (user: any) => {
     setSelectedUser(user);
-    setEditBalances(user.balances);
-    setEditAddresses(user.addresses || {});
+    const initialBalances: { [key: string]: string } = {};
+    const initialAddresses: { [key: string]: string } = {};
+    assetConfig.forEach(a => {
+      initialBalances[a.symbol] = user.balances?.[a.symbol] !== undefined ? String(user.balances[a.symbol]) : '0';
+      initialAddresses[a.symbol] = user.addresses?.[a.symbol] || '';
+    });
+    if (user.balances) {
+      Object.keys(user.balances).forEach(k => {
+        if (!(k in initialBalances)) initialBalances[k] = String(user.balances[k]);
+      });
+    }
+    if (user.addresses) {
+      Object.keys(user.addresses).forEach(k => {
+        if (!(k in initialAddresses)) initialAddresses[k] = String(user.addresses[k]);
+      });
+    }
+    setEditBalances(initialBalances);
+    setEditAddresses(initialAddresses);
     setAddressErrors({});
+    setCardAdjustAmounts({});
     setShowEditBalance(true);
+  };
+
+  const handleCopyModalAddress = (asset: string, address: string) => {
+    if (!address) return;
+    copyToClipboard(address);
+    setCopiedModalAddress(asset);
+    setTimeout(() => setCopiedModalAddress(null), 2000);
+  };
+
+  const handleCardAdjustBalance = async (asset: string, action: 'add' | 'deduct') => {
+    if (!selectedUser) return;
+    const amountStr = cardAdjustAmounts[asset];
+    if (!amountStr) {
+      alert('Please enter an amount to adjust');
+      return;
+    }
+    const amt = parseFloat(amountStr);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter a valid positive amount');
+      return;
+    }
+    setAdjustingAsset(asset);
+    try {
+      const cur = parseFloat(editBalances[asset] || '0');
+      const newBal = action === 'add' ? cur + amt : Math.max(0, cur - amt);
+      const updated = { ...editBalances, [asset]: formatDecimal(newBal) };
+      setEditBalances(updated);
+
+      const note = action === 'add' 
+        ? `Admin credited ${formatDecimal(amt)} ${asset}` 
+        : `Admin debited ${formatDecimal(amt)} ${asset}`;
+      
+      const tx = {
+        id: `txn_${Date.now()}_${asset}`,
+        type: action === 'add' ? 'credit' : 'debit',
+        asset: asset,
+        amount: formatDecimal(amt),
+        timestamp: new Date().toISOString(),
+        status: 'completed',
+        hash: `0x${Math.random().toString(16).substring(2, 66)}`,
+        to: action === 'add' ? (editAddresses[asset] || selectedUser.addresses?.[asset] || 'User Wallet') : 'Admin Adjustment',
+        from: action === 'add' ? 'Admin' : (editAddresses[asset] || selectedUser.addresses?.[asset] || 'User Wallet'),
+        fee: '0',
+        gasFee: '0',
+        network: 'Unknown',
+        confirmations: 15,
+        requiredConfirmations: 15,
+        notes: note
+      };
+
+      const allUsers = users.map(u => u.id === selectedUser.id ? { ...u, balances: updated } : u);
+      dataService.setItem('xbyte_admin_users', JSON.stringify(allUsers));
+      setUsers(allUsers);
+
+      const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities') || '{}');
+      if (!userActivities[selectedUser.id]) userActivities[selectedUser.id] = [];
+      userActivities[selectedUser.id].unshift(tx);
+      dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
+
+      const userWallet = dataService.getItem('xbyte_wallet');
+      if (userWallet) {
+        const wd = JSON.parse(userWallet);
+        if (wd.id === selectedUser.id) {
+          const updatedWallet = { ...wd, balances: updated, transactions: [tx, ...(wd.transactions || [])] };
+          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
+          window.dispatchEvent(new CustomEvent('walletDataUpdated', { detail: { walletData: updatedWallet } }));
+        }
+      }
+
+      const { data: assetRows } = await supabase.from('assets').select('id,symbol');
+      const { data: walletRow } = await supabase.from('wallets').select('id').eq('user_id', selectedUser.id).eq('is_primary', true).maybeSingle();
+      if (walletRow && assetRows) {
+        const a = assetRows.find((ar: any) => ar.symbol === asset);
+        if (a) await supabase.from('wallet_balances').upsert({ wallet_id: walletRow.id, asset_id: a.id, balance: newBal }, { onConflict: 'wallet_id,asset_id' });
+        await supabase.from('transactions').insert({
+          wallet_id: walletRow.id,
+          user_id: selectedUser.id,
+          type: tx.type,
+          status: 'completed',
+          asset_id: a?.id || null,
+          asset_symbol: asset,
+          amount: amt,
+          from_address: tx.from,
+          to_address: tx.to,
+          network: 'Unknown',
+          hash: tx.hash,
+          fee: 0,
+          notes: note
+        });
+      }
+
+      setCardAdjustAmounts(prev => ({ ...prev, [asset]: '' }));
+      alert(`✅ ${action === 'add' ? 'Added' : 'Deducted'} ${formatDecimal(amt)} ${asset} ${action === 'add' ? 'to' : 'from'} ${selectedUser.email}`);
+    } catch (e: any) {
+      alert('Error adjusting balance: ' + (e?.message || e));
+    } finally {
+      setAdjustingAsset(null);
+    }
   };
 
   const handleViewActivities = (user: any) => {
@@ -1475,6 +1594,12 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     }
   };
 
+  const handleToggleAssetEnabled = (symbol: string, enabled: boolean) => {
+    const updated = assetConfig.map(a => a.symbol === symbol ? { ...a, enabled } : a);
+    setAssetConfig(updated);
+    saveAssetConfig(updated);
+  };
+
   const handleSaveCoin = () => {
     // Validate form
     if (!coinForm.symbol || !coinForm.name) {
@@ -2163,6 +2288,18 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                                 </Badge>
                               </div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">24h Change</p>
+                            </div>
+
+                            {/* Toggle Asset Visibility on User Home */}
+                            <div className="flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                              <span className={`text-xs font-medium ${asset.enabled !== false ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                                {asset.enabled !== false ? 'Shown on Home' : 'Hidden on Home'}
+                              </span>
+                              <Switch
+                                checked={asset.enabled !== false}
+                                onCheckedChange={(checked) => handleToggleAssetEnabled(asset.symbol, checked)}
+                                aria-label={`Toggle user home display for ${asset.name}`}
+                              />
                             </div>
                             
                             {/* Edit/Delete Actions */}
@@ -3540,71 +3677,156 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 <p className="text-gray-900 dark:text-white">{selectedUser.email}</p>
               </div>
 
-              {Object.entries(selectedUser.balances).map(([asset, balance]) => {
-                const assetInfo = assetConfig.find(a => a.symbol === asset);
+              {assetConfig.map((assetItem) => {
+                const asset = assetItem.symbol;
+                const currentBalance = editBalances[asset] ?? '0';
+                const currentAddress = editAddresses[asset] || '';
+                const adjustAmount = cardAdjustAmounts[asset] || '';
+                const isThisAdjusting = adjustingAsset === asset;
+
                 return (
-                  <div key={asset} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-3 mb-3">
-                      {assetInfo?.logoUrl ? (
-                        <img src={assetInfo.logoUrl} alt={assetInfo.name} className="w-10 h-10 rounded-full object-cover" />
-                      ) : (
-                        <div className={`w-10 h-10 rounded-full ${assetInfo?.color} flex items-center justify-center text-white`}>
-                          {assetInfo?.icon}
+                  <div key={asset} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-3.5 border border-gray-200/80 dark:border-gray-600/70">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {assetItem.logoUrl ? (
+                          <img src={assetItem.logoUrl} alt={assetItem.name} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className={`w-10 h-10 rounded-full ${assetItem.color} flex items-center justify-center text-white font-bold`}>
+                            {assetItem.icon || asset.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900 dark:text-white">{assetItem.name}</h4>
+                            <span className="text-xs px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-600 font-mono text-gray-700 dark:text-gray-300">
+                              {asset}
+                            </span>
+                          </div>
+                          {assetItem.network && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{assetItem.network}</p>
+                          )}
                         </div>
-                      )}
-                      <div>
-                        <h4 className="text-gray-900 dark:text-white">{assetInfo?.name}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{asset}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 block">Current Balance</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {currentBalance} {asset}
+                        </span>
                       </div>
                     </div>
                     
+                    {/* Direct Balance Input */}
                     <div>
-                      <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Balance
                       </label>
                       <Input
                         type="number"
-                        value={editBalances[asset] as string}
+                        step="any"
+                        value={currentBalance}
                         placeholder="0.00"
                         onChange={(e) => setEditBalances({ ...editBalances, [asset]: e.target.value })}
+                        className="bg-white dark:bg-gray-800"
                       />
                     </div>
 
+                    {/* Quick Add / Deduct directly on this card */}
+                    <div className="p-3 bg-white dark:bg-gray-800/80 rounded-lg border border-gray-200 dark:border-gray-600/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                          <Coins className="w-3.5 h-3.5 text-zinc-500" />
+                          Adjust Balance (+ / -)
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="Amount"
+                          value={adjustAmount}
+                          onChange={(e) => setCardAdjustAmounts({ ...cardAdjustAmounts, [asset]: e.target.value })}
+                          className="flex-1 h-9 text-sm bg-gray-50 dark:bg-gray-700"
+                          disabled={isThisAdjusting}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!adjustAmount || isThisAdjusting}
+                          onClick={() => handleCardAdjustBalance(asset, 'add')}
+                          className="h-9 px-3 bg-green-600 hover:bg-green-700 text-white font-medium flex items-center gap-1 border-0"
+                          title="Add to balance"
+                        >
+                          {isThisAdjusting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                          Add
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!adjustAmount || isThisAdjusting}
+                          onClick={() => handleCardAdjustBalance(asset, 'deduct')}
+                          className="h-9 px-3 bg-red-600 hover:bg-red-700 text-white font-medium flex items-center gap-1 border-0"
+                          title="Deduct from balance"
+                        >
+                          {isThisAdjusting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Minus className="w-3.5 h-3.5" />}
+                          Deduct
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Wallet Address with Copy Icon */}
                     <div>
-                      <label className="block text-sm mb-2 text-gray-700 dark:text-gray-300">
-                        Wallet Address
-                      </label>
-                      <Input
-                        type="text"
-                        value={editAddresses[asset] as string || ''}
-                        placeholder={`Enter ${asset} address`}
-                        className={`font-mono text-sm ${addressErrors[asset] ? 'border-red-500 dark:border-red-500' : ''}`}
-                        onChange={(e) => handleAddressChange(asset, e.target.value)}
-                      />
-                      {addressErrors[asset] && (
-                        <div className="flex items-center gap-2 mt-2 text-red-600 dark:text-red-400">
-                          <AlertCircle className="w-4 h-4" />
-                          <span className="text-sm">{addressErrors[asset]}</span>
-                        </div>
-                      )}
-                      {!addressErrors[asset] && editAddresses[asset] && (
-                        <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
-                          <CheckCircle className="w-4 h-4" />
-                          <span className="text-sm">Valid {asset} address</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Wallet Address
+                        </label>
                         <button
                           type="button"
                           onClick={() => {
                             const newAddress = generateRandomAddress(asset);
                             handleAddressChange(asset, newAddress);
                           }}
-                          className="text-sm text-zinc-400 dark:text-zinc-300 hover:underline"
+                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
                         >
                           Generate Address
                         </button>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          value={currentAddress}
+                          placeholder={`Enter ${asset} address`}
+                          className={`font-mono text-xs flex-1 bg-white dark:bg-gray-800 ${addressErrors[asset] ? 'border-red-500 dark:border-red-500' : ''}`}
+                          onChange={(e) => handleAddressChange(asset, e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyModalAddress(asset, currentAddress)}
+                          disabled={!currentAddress}
+                          className="h-9 px-2.5 shrink-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="Copy Wallet Address"
+                        >
+                          {copiedModalAddress === asset ? (
+                            <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                          )}
+                        </Button>
+                      </div>
+                      {addressErrors[asset] && (
+                        <div className="flex items-center gap-1.5 mt-1.5 text-red-600 dark:text-red-400">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-xs">{addressErrors[asset]}</span>
+                        </div>
+                      )}
+                      {!addressErrors[asset] && currentAddress && (
+                        <div className="flex items-center gap-1.5 mt-1.5 text-green-600 dark:text-green-400">
+                          <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-xs">Valid {asset} address</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -3614,97 +3836,6 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                 <Check className="w-4 h-4 mr-2" />
                 Update Balance & Addresses
               </Button>
-
-              {/* Quick Token Balance Adjust */}
-              <div className="mt-6 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-4 space-y-3">
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                  <Coins className="w-4 h-4"/> Quick Balance Adjust
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Asset</label>
-                    <select
-                      value={quickAdjust.asset}
-                      onChange={e => setQuickAdjust(q => ({ ...q, asset: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500"
-                    >
-                      <option value="">Select asset</option>
-                      {assetConfig.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Action</label>
-                    <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                      <button onClick={() => setQuickAdjust(q => ({ ...q, action: 'add' }))} className={`flex-1 py-2 text-sm font-medium transition-colors ${quickAdjust.action==='add'?'bg-green-600 text-white':'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50'}`}>+ Add</button>
-                      <button onClick={() => setQuickAdjust(q => ({ ...q, action: 'deduct' }))} className={`flex-1 py-2 text-sm font-medium transition-colors ${quickAdjust.action==='deduct'?'bg-red-600 text-white':'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50'}`}>- Deduct</button>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</label>
-                    <input type="number" min="0" step="any" value={quickAdjust.amount} onChange={e=>setQuickAdjust(q=>({...q,amount:e.target.value}))} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500" placeholder="0.00"/>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Note (optional)</label>
-                    <input value={quickAdjust.note} onChange={e=>setQuickAdjust(q=>({...q,note:e.target.value}))} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-500" placeholder="Reason..."/>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={!quickAdjust.asset || !quickAdjust.amount || isQuickAdjusting}
-                  onClick={async () => {
-                    if (!quickAdjust.asset || !quickAdjust.amount || !selectedUser) return;
-                    const amt = parseFloat(quickAdjust.amount);
-                    if (isNaN(amt) || amt <= 0) { alert('Enter a valid amount'); return; }
-                    setIsQuickAdjusting(true);
-                    try {
-                      const cur = parseFloat(editBalances[quickAdjust.asset] || '0');
-                      const newBal = quickAdjust.action === 'add' ? cur + amt : Math.max(0, cur - amt);
-                      const updated = { ...editBalances, [quickAdjust.asset]: formatDecimal(newBal) };
-                      setEditBalances(updated);
-                      const note = quickAdjust.note || (quickAdjust.action === 'add' ? `Admin credited ${formatDecimal(amt)} ${quickAdjust.asset}` : `Admin debited ${formatDecimal(amt)} ${quickAdjust.asset}`);
-                      const tx = {
-                        id: `txn_${Date.now()}_${quickAdjust.asset}`, type: quickAdjust.action === 'add' ? 'credit' : 'debit',
-                        asset: quickAdjust.asset, amount: formatDecimal(amt), timestamp: new Date().toISOString(), status: 'completed',
-                        hash: `0x${Math.random().toString(16).substring(2, 66)}`,
-                        to: quickAdjust.action === 'add' ? (editAddresses[quickAdjust.asset] || 'User Wallet') : 'Admin Adjustment',
-                        from: quickAdjust.action === 'add' ? 'Admin' : (editAddresses[quickAdjust.asset] || 'User Wallet'),
-                        fee: '0', gasFee: '0', network: 'Unknown', confirmations: 15, requiredConfirmations: 15, notes: note
-                      };
-                      const allUsers = users.map(u => u.id===selectedUser.id?{...u,balances:updated}:u);
-                      dataService.setItem('xbyte_admin_users', JSON.stringify(allUsers));
-                      setUsers(allUsers);
-                      const userActivities = JSON.parse(dataService.getItem('xbyte_user_activities')||'{}');
-                      if (!userActivities[selectedUser.id]) userActivities[selectedUser.id]=[];
-                      userActivities[selectedUser.id].unshift(tx);
-                      dataService.setItem('xbyte_user_activities', JSON.stringify(userActivities));
-                      const userWallet = dataService.getItem('xbyte_wallet');
-                      if (userWallet) {
-                        const wd = JSON.parse(userWallet);
-                        if (wd.id === selectedUser.id) {
-                          const updatedWallet = { ...wd, balances: updated, transactions: [tx, ...(wd.transactions||[])] };
-                          dataService.setItem('xbyte_wallet', JSON.stringify(updatedWallet));
-                          window.dispatchEvent(new CustomEvent('walletDataUpdated',{detail:{walletData:updatedWallet}}));
-                        }
-                      }
-                      const { data: assetRows } = await supabase.from('assets').select('id,symbol');
-                      const { data: walletRow } = await supabase.from('wallets').select('id').eq('user_id',selectedUser.id).eq('is_primary',true).maybeSingle();
-                      if (walletRow && assetRows) {
-                        const a = assetRows.find((ar:any)=>ar.symbol===quickAdjust.asset);
-                        if (a) await supabase.from('wallet_balances').upsert({wallet_id:walletRow.id,asset_id:a.id,balance:newBal},{onConflict:'wallet_id,asset_id'});
-                        await supabase.from('transactions').insert({wallet_id:walletRow.id,user_id:selectedUser.id,type:tx.type,status:'completed',asset_id:a?.id||null,asset_symbol:quickAdjust.asset,amount:amt,from_address:tx.from,to_address:tx.to,network:'Unknown',hash:tx.hash,fee:0,notes:note});
-                      }
-                      setQuickAdjust({asset:'',action:'add',amount:'',note:''});
-                      alert(`✅ ${quickAdjust.action==='add'?'Added':'Deducted'} ${formatDecimal(amt)} ${quickAdjust.asset} ${quickAdjust.action==='add'?'to':'from'} ${selectedUser.email}`);
-                    } catch(e:any){ alert('Error: '+e.message); }
-                    finally { setIsQuickAdjusting(false); }
-                  }}
-                  className={`w-full ${quickAdjust.action==='add'?'bg-green-600 hover:bg-green-700':'bg-red-600 hover:bg-red-700'} text-white border-0`}
-                >
-                  {isQuickAdjusting ? <><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Processing...</> : <>{quickAdjust.action==='add'?'+ Credit':'- Debit'} {quickAdjust.asset||'Token'}</>}
-                </Button>
-              </div>
             </div>
           </div>
         </div>
