@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, User } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -11,6 +11,11 @@ interface EditFeeModalProps {
   assetName: string;
   assetIcon: string;
   assetColor: string;
+  targetUser?: {
+    id: string;
+    name?: string;
+    email?: string;
+  } | null;
   feeData: {
     deposit_address: string;
     withdraw_fee: string;
@@ -30,6 +35,7 @@ export default function EditFeeModal({
   assetName,
   assetIcon,
   assetColor,
+  targetUser,
   feeData,
   onSave,
   onClose
@@ -164,8 +170,22 @@ export default function EditFeeModal({
                 </div>
               )}
               <div>
-                <h2 className="text-xl text-gray-900 dark:text-white">Edit Fee Settings</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{assetName} ({asset})</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Edit Fee Settings</h2>
+                  {targetUser && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                      User Override
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {assetName} ({asset})
+                  {targetUser && (
+                    <span className="font-medium text-blue-600 dark:text-blue-400 ml-1">
+                      • {targetUser.name || targetUser.email || targetUser.id}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
             <button
@@ -179,6 +199,14 @@ export default function EditFeeModal({
 
         {/* Form Content */}
         <div className="p-6 space-y-6">
+          {targetUser && (
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl p-3.5 flex items-start gap-3">
+              <User className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-900 dark:text-blue-200">
+                <span className="font-semibold">User-Specific Override:</span> You are editing the custom withdrawal fee, gas fee, and deposit address for <strong>{targetUser.name || targetUser.email}</strong>. Other platform users will continue using global defaults.
+              </div>
+            </div>
+          )}
           {/* Deposit Address */}
           <div>
             <Label htmlFor="deposit_address" className="text-gray-900 dark:text-white mb-2">

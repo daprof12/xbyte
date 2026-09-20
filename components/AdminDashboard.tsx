@@ -1,9 +1,10 @@
 import dataService from '../utils/dataService';
+import feeService, { UserFeeOverride, AssetFeeConfig } from '../utils/feeService';
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { fetchUserWalletFromDB } from '../utils/supabaseHelpers';
 import { useAdminUsers, useAdminFees, useAdminActivities, useAdminAuditLogs, useAdminTickets, useAdminChats } from '../hooks/useSupabaseData';
-import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Trash2, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, LogIn, KeyRound, Moon, Sun, Database, FileCheck, ShieldCheck, ExternalLink, Image, Upload, Loader2, Bell, Plus, Minus } from 'lucide-react';
+import { Users, DollarSign, Settings, FileText, ArrowLeft, Shield, Search, MoreVertical, Edit, Edit2, Trash, Trash2, Lock, Unlock, Eye, EyeOff, Activity, Coins, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, Check, Copy, Headphones, MessageCircle, Send, Phone, Mail, Clock, AlertCircle, CheckCircle, XCircle, User, LogOut, LogIn, KeyRound, Moon, Sun, Database, FileCheck, ShieldCheck, ExternalLink, Image, Upload, Loader2, Bell, Plus, Minus, Globe, RotateCcw, CheckCircle2, UserCheck, Sliders } from 'lucide-react';
 
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -136,8 +137,26 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     newPassword: '',
     confirmPassword: ''
   });
-  const [editingFee, setEditingFee] = useState<{asset: string; data: any} | null>(null);
+  const [editingFee, setEditingFee] = useState<{
+    asset: string;
+    data: any;
+    targetUser?: { id: string; name?: string; email?: string } | null;
+  } | null>(null);
+  const [feeScope, setFeeScope] = useState<'global' | 'user'>('global');
+  const [selectedFeeUserId, setSelectedFeeUserId] = useState<string | null>(null);
+  const [feeAssetSearch, setFeeAssetSearch] = useState('');
+  const [feeUserSearchQuery, setFeeUserSearchQuery] = useState('');
+  const [userFeeOverrides, setUserFeeOverrides] = useState<Record<string, UserFeeOverride>>(() => feeService.getAllUserFeeOverrides());
   const [copiedDepositAddresses, setCopiedDepositAddresses] = useState<{[key: string]: boolean}>({});
+
+  // Synchronize fee overrides from storage events
+  useEffect(() => {
+    const syncOverrides = () => {
+      setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+    };
+    window.addEventListener('fees_updated', syncOverrides);
+    return () => window.removeEventListener('fees_updated', syncOverrides);
+  }, []);
 
   // Coin Management States
   const [showCoinModal, setShowCoinModal] = useState(false);
@@ -1418,20 +1437,62 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     }
   };
 
-  const handleEditFee = (asset: string) => {
-    setEditingFee({ asset, data: fees[asset] });
+  const handleEditFee = (asset: string, targetUser?: { id: string; name?: string; email?: string } | null) => {
+    if (targetUser) {
+      const effectiveData = feeService.getEffectiveAssetFee(asset, targetUser.id);
+      setEditingFee({ asset, data: effectiveData, targetUser });
+    } else {
+      const globalFees = feeService.getGlobalFees();
+      const currentAssetFee = fees[asset] || globalFees[asset] || feeService.getDefaultAssetFee(asset);
+      setEditingFee({ asset, data: currentAssetFee, targetUser: null });
+    }
   };
 
   const handleSaveFee = (asset: string, updatedFee: any) => {
-    // Update fees state
+    if (editingFee?.targetUser) {
+      // User-specific fee save
+      const targetUser = editingFee.targetUser;
+      const currentOverride = feeService.getUserFeeOverride(targetUser.id) || {
+        userId: targetUser.id,
+        userEmail: targetUser.email,
+        userName: targetUser.name,
+        enabled: true,
+        fees: {},
+        updatedAt: new Date().toISOString()
+      };
+
+      const updatedOverride: UserFeeOverride = {
+        ...currentOverride,
+        enabled: true,
+        userEmail: targetUser.email || currentOverride.userEmail,
+        userName: targetUser.name || currentOverride.userName,
+        fees: {
+          ...currentOverride.fees,
+          [asset]: updatedFee
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      feeService.saveUserFeeOverride(updatedOverride);
+      setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+      addAuditLog('User Fee Update', `Updated ${asset} custom fee settings for user ${targetUser.email || targetUser.name || targetUser.id}`);
+      setEditingFee(null);
+      alert(`Custom ${asset} fee settings for ${targetUser.name || targetUser.email} updated successfully!`);
+      return;
+    }
+
+    // Global fee update
+    const currentGlobal = feeService.getGlobalFees();
     const updatedFees = {
+      ...currentGlobal,
       ...fees,
       [asset]: updatedFee
     };
     setFees(updatedFees);
+    feeService.saveGlobalFees(updatedFees);
 
     // Log activity
-    addAuditLog('Fee Update', `Updated ${asset} withdrawal fee and deposit settings`);
+    addAuditLog('Fee Update', `Updated global ${asset} withdrawal fee and deposit settings`);
 
     // Sync to Supabase
     supabase
@@ -1454,7 +1515,77 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
     // Close modal
     setEditingFee(null);
 
-    alert(`${asset} fee settings updated successfully!`);
+    alert(`Global ${asset} fee settings updated successfully!`);
+  };
+
+  const handleToggleUserOverride = (user: any, enabled: boolean) => {
+    const existing = feeService.getUserFeeOverride(user.id);
+    if (existing) {
+      const updated: UserFeeOverride = {
+        ...existing,
+        enabled,
+        updatedAt: new Date().toISOString()
+      };
+      feeService.saveUserFeeOverride(updated);
+    } else {
+      // Create new override with global fees as baseline
+      const globalFees = feeService.getGlobalFees();
+      const newOverride: UserFeeOverride = {
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        enabled,
+        fees: { ...globalFees },
+        updatedAt: new Date().toISOString()
+      };
+      feeService.saveUserFeeOverride(newOverride);
+    }
+    setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+    addAuditLog('User Fee Toggle', `${enabled ? 'Enabled' : 'Disabled'} custom fee override for user ${user.email}`);
+  };
+
+  const handleCopyFromGlobalToUser = (user: any) => {
+    const globalFees = feeService.getGlobalFees();
+    const newOverride: UserFeeOverride = {
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      enabled: true,
+      fees: { ...globalFees },
+      updatedAt: new Date().toISOString()
+    };
+    feeService.saveUserFeeOverride(newOverride);
+    setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+    addAuditLog('User Fee Sync', `Copied all global fee settings to user ${user.email}`);
+    alert(`Copied current global fees to ${user.name || user.email}'s custom settings.`);
+  };
+
+  const handleResetUserToGlobal = (user: any) => {
+    if (!confirm(`Are you sure you want to remove all custom fee overrides for ${user.name || user.email}? They will revert to platform global defaults.`)) {
+      return;
+    }
+    feeService.deleteUserFeeOverride(user.id);
+    setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+    addAuditLog('User Fee Reset', `Reset fee overrides for user ${user.email} to platform defaults`);
+    alert(`${user.name || user.email} has been reverted to platform global defaults.`);
+  };
+
+  const handleResetUserAssetToGlobal = (user: any, assetSymbol: string) => {
+    const existing = feeService.getUserFeeOverride(user.id);
+    if (!existing || !existing.fees || !existing.fees[assetSymbol]) return;
+
+    const newFees = { ...existing.fees };
+    delete newFees[assetSymbol];
+
+    const updated: UserFeeOverride = {
+      ...existing,
+      fees: newFees,
+      updatedAt: new Date().toISOString()
+    };
+
+    feeService.saveUserFeeOverride(updated);
+    setUserFeeOverrides(feeService.getAllUserFeeOverrides());
+    addAuditLog('User Fee Coin Reset', `Reset ${assetSymbol} fee override for user ${user.email} to global default`);
   };
 
   const handleChangePassword = () => {
@@ -2394,140 +2525,689 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
 
           {/* Fees Tab */}
           <TabsContent value="fees">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-xl mb-6 text-gray-900 dark:text-white">Fee & Deposit Configuration</h2>
-              
-              <div className="space-y-6">
-                {Object.entries(fees).map(([asset, fee]) => {
-                  const assetInfo = assetConfig.find(a => a.symbol === asset);
-                  
-                  const handleCopyDeposit = async () => {
-                    const success = await copyToClipboard(fee.deposit_address);
-                    if (success) {
-                      setCopiedDepositAddresses({...copiedDepositAddresses, [asset]: true});
-                      setTimeout(() => {
-                        setCopiedDepositAddresses(prev => ({...prev, [asset]: false}));
-                      }, 2000);
-                    }
-                  };
+            <div className="space-y-6">
+              {/* Header & Scope Selector */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+                      Fee & Deposit Configuration
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Configure withdrawal rates, gas fees, and deposit addresses across all assets in the Platform Assets Overview.
+                    </p>
+                  </div>
 
-                  return (
-                    <div key={asset} className="p-6 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                          {assetInfo?.logoUrl ? (
-                            <img src={assetInfo.logoUrl} alt={assetInfo.name} className="w-12 h-12 rounded-full object-cover" />
-                          ) : (
-                            <div className={`w-12 h-12 rounded-full ${assetInfo?.color} flex items-center justify-center text-white text-xl`}>
-                              {assetInfo?.icon}
+                  {/* Scope Selector Pills */}
+                  <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-700/80 rounded-xl border border-gray-200 dark:border-gray-600">
+                    <button
+                      type="button"
+                      onClick={() => setFeeScope('global')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        feeScope === 'global'
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 text-blue-500" />
+                      Global Platform Defaults
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFeeScope('user')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        feeScope === 'user'
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5 text-emerald-500" />
+                      User-Specific Configuration
+                      {Object.keys(userFeeOverrides).length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                          {Object.keys(userFeeOverrides).length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scope Context Description & Stats */}
+                <div className="pt-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-700/60 font-medium">
+                      <Coins className="w-3.5 h-3.5 text-zinc-500" />
+                      {assetConfig.length} Assets Captured
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-700/60 font-medium">
+                      <Users className="w-3.5 h-3.5 text-zinc-500" />
+                      {Object.values(userFeeOverrides).filter(o => o.enabled).length} Active User Overrides
+                    </span>
+                  </div>
+
+                  {/* Asset Search Filter */}
+                  <div className="w-full sm:w-72 relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      placeholder="Search coins by name or symbol..."
+                      value={feeAssetSearch}
+                      onChange={(e) => setFeeAssetSearch(e.target.value)}
+                      className="pl-9 text-xs h-9 bg-gray-50 dark:bg-gray-900/50"
+                    />
+                    {feeAssetSearch && (
+                      <button
+                        onClick={() => setFeeAssetSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ================= GLOBAL DEFAULTS VIEW ================= */}
+              {feeScope === 'global' && (
+                <div className="space-y-6">
+                  {/* Global Mode Notification */}
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-xl flex items-start gap-3">
+                    <Globe className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-blue-900 dark:text-blue-200">
+                      <strong>Global Platform Defaults:</strong> These settings apply to all users across all supported assets by default. If a specific user requires customized rates or a dedicated deposit address, switch to <strong>User-Specific Configuration</strong> to set personalized overrides.
+                    </div>
+                  </div>
+
+                  {/* Grid of all assets from Platform Assets Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {assetConfig
+                      .filter(asset => {
+                        if (!feeAssetSearch.trim()) return true;
+                        const q = feeAssetSearch.toLowerCase();
+                        return (
+                          asset.symbol.toLowerCase().includes(q) ||
+                          asset.name.toLowerCase().includes(q) ||
+                          (asset.network && asset.network.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((asset) => {
+                        const globalFee = fees[asset.symbol] || feeService.getEffectiveAssetFee(asset.symbol);
+
+                        const handleCopyDeposit = async () => {
+                          const success = await copyToClipboard(globalFee.deposit_address);
+                          if (success) {
+                            setCopiedDepositAddresses(prev => ({ ...prev, [asset.symbol]: true }));
+                            setTimeout(() => {
+                              setCopiedDepositAddresses(prev => ({ ...prev, [asset.symbol]: false }));
+                            }, 2000);
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={asset.symbol}
+                            className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between"
+                          >
+                            <div>
+                              {/* Asset Header */}
+                              <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+                                <div className="flex items-center gap-3">
+                                  {asset.logoUrl ? (
+                                    <img src={asset.logoUrl} alt={asset.name} className="w-11 h-11 rounded-full object-cover shadow-sm" />
+                                  ) : (
+                                    <div className={`w-11 h-11 rounded-full ${asset.color} flex items-center justify-center text-white text-lg font-bold shadow-sm`}>
+                                      {asset.icon}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{asset.name}</h3>
+                                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                        {asset.symbol}
+                                      </span>
+                                    </div>
+                                    {asset.network && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{asset.network}</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditFee(asset.symbol, null)}
+                                  className="h-8 text-xs font-semibold"
+                                >
+                                  <Edit className="w-3.5 h-3.5 mr-1.5" />
+                                  Edit Global
+                                </Button>
+                              </div>
+
+                              {/* Withdrawal Fees */}
+                              <div className="mb-5">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                                  Withdrawal Fees
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                    <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Fixed Fee</label>
+                                    <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                      {globalFee.withdraw_fee} {asset.symbol}
+                                    </p>
+                                  </div>
+                                  <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                    <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Percent Fee</label>
+                                    <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                      {globalFee.percent}%
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Estimated Gas Fees */}
+                              <div className="mb-5">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Estimated Gas Fees
+                                  </h4>
+                                  <Badge variant={globalFee.gas_fee_enabled ? 'default' : 'secondary'} className="text-[10px]">
+                                    {globalFee.gas_fee_enabled ? 'Active' : 'Disabled'}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                    <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Fee Type</label>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">
+                                      {globalFee.gas_fee_type === 'fixed' ? 'Fixed Amount' : 'Percentage Rate'}
+                                    </p>
+                                  </div>
+                                  <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                    <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Rate / Value</label>
+                                    <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                      {globalFee.gas_fee_type === 'fixed' ? `${globalFee.gas_fee_fixed} ${asset.symbol}` : `${globalFee.gas_fee_percent}%`}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Deposit Address */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Platform Deposit Address
+                                  </h4>
+                                  <Badge variant={globalFee.deposit_enabled ? 'default' : 'destructive'} className="text-[10px]">
+                                    {globalFee.deposit_enabled ? 'Deposits Allowed' : 'Disabled'}
+                                  </Badge>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg p-2.5 flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs text-gray-900 dark:text-white break-all select-all">
+                                    {globalFee.deposit_address}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCopyDeposit}
+                                    className="h-7 w-7 p-0 flex-shrink-0"
+                                  >
+                                    {copiedDepositAddresses[asset.symbol] ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
-                          )}
-                          <div>
-                            <h3 className="text-lg text-gray-900 dark:text-white">{assetInfo?.name}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{asset}</p>
                           </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Active Overrides Registry Table */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Active User-Specific Overrides</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Users with custom withdrawal rates, gas fees, or deposit addresses.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setFeeScope('user');
+                          if (users.length > 0 && !selectedFeeUserId) {
+                            setSelectedFeeUserId(users[0].id);
+                          }
+                        }}
+                        className="text-xs h-8"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                        Configure a User
+                      </Button>
+                    </div>
+
+                    {Object.keys(userFeeOverrides).length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 dark:bg-gray-900/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                        <Users className="w-8 h-8 mx-auto text-gray-400 mb-2 opacity-60" />
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No User Overrides Configured Yet</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
+                          All registered users are currently using platform global defaults. You can personalize rates for any user at any time.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>User</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Custom Coins</TableHead>
+                              <TableHead>Last Updated</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {Object.values(userFeeOverrides).map((override) => {
+                              const targetUser = users.find(u => u.id === override.userId);
+                              const customCoinsCount = Object.keys(override.fees || {}).length;
+
+                              return (
+                                <TableRow key={override.userId}>
+                                  <TableCell>
+                                    <div>
+                                      <p className="font-semibold text-sm text-gray-900 dark:text-white">
+                                        {override.userName || targetUser?.name || 'Unnamed User'}
+                                      </p>
+                                      <p className="text-xs text-gray-500 font-mono">
+                                        {override.userEmail || targetUser?.email || override.userId}
+                                      </p>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={override.enabled ? 'default' : 'secondary'} className="text-[10px]">
+                                      {override.enabled ? 'Active Override' : 'Disabled'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                      {customCoinsCount === 0 ? (
+                                        <span className="text-xs text-gray-400">All Global</span>
+                                      ) : (
+                                        Object.keys(override.fees || {}).slice(0, 4).map(coin => (
+                                          <Badge key={coin} variant="outline" className="text-[10px] font-mono">
+                                            {coin}
+                                          </Badge>
+                                        ))
+                                      )}
+                                      {customCoinsCount > 4 && (
+                                        <Badge variant="outline" className="text-[10px]">
+                                          +{customCoinsCount - 4} more
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-gray-500">
+                                    {override.updatedAt ? new Date(override.updatedAt).toLocaleDateString() : 'N/A'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs"
+                                        onClick={() => {
+                                          setSelectedFeeUserId(override.userId);
+                                          setFeeScope('user');
+                                        }}
+                                      >
+                                        <Edit className="w-3 h-3 mr-1" />
+                                        Configure
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                        onClick={() => handleResetUserToGlobal({ id: override.userId, email: override.userEmail, name: override.userName })}
+                                      >
+                                        <RotateCcw className="w-3 h-3 mr-1" />
+                                        Reset
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ================= USER-SPECIFIC CONFIGURATION VIEW ================= */}
+              {feeScope === 'user' && (() => {
+                const selectedFeeUser = users.find(u => u.id === selectedFeeUserId);
+                const userOverride = selectedFeeUserId ? userFeeOverrides[selectedFeeUserId] : null;
+
+                return (
+                  <div className="space-y-6">
+                    {/* User Selection Header Card */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                            Select Target User to Configure
+                          </label>
+                          <Select
+                            value={selectedFeeUserId || ''}
+                            onValueChange={(val) => setSelectedFeeUserId(val)}
+                          >
+                            <SelectTrigger className="w-full md:max-w-md bg-gray-50 dark:bg-gray-900">
+                              <SelectValue placeholder="Select a user from directory..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {users.map((u) => {
+                                const hasOverride = Boolean(userFeeOverrides[u.id]?.enabled);
+                                return (
+                                  <SelectItem key={u.id} value={u.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>{u.name || u.email}</span>
+                                      <span className="text-xs text-gray-400">({u.email})</span>
+                                      {hasOverride && (
+                                        <span className="ml-1 text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded font-semibold">
+                                          Custom
+                                        </span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEditFee(asset)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
+
+                        {selectedFeeUser && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopyFromGlobalToUser(selectedFeeUser)}
+                              className="text-xs h-9"
+                            >
+                              <Copy className="w-3.5 h-3.5 mr-1.5" />
+                              Copy from Global Defaults
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetUserToGlobal(selectedFeeUser)}
+                              className="text-xs h-9 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                              Reset to Global
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Withdrawal Fees */}
-                      <div className="mb-6">
-                        <h4 className="text-sm text-gray-700 dark:text-gray-300 mb-3">Withdrawal Fees</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              Fixed Fee
-                            </label>
-                            <Input value={fee.withdraw_fee} readOnly />
+                      {/* Selected User Overview Banner */}
+                      {selectedFeeUser && (
+                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                              {selectedFeeUser.name ? selectedFeeUser.name.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2.5">
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                  {selectedFeeUser.name || 'Registered User'}
+                                </h3>
+                                <Badge
+                                  variant={userOverride?.enabled ? 'default' : 'secondary'}
+                                  className={`text-xs ${
+                                    userOverride?.enabled
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                      : ''
+                                  }`}
+                                >
+                                  {userOverride?.enabled ? 'Custom Overrides Active' : 'Using Global Defaults'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-500 font-mono mt-0.5">
+                                {selectedFeeUser.email} • ID: {selectedFeeUser.id.slice(0, 10)}...
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              Percentage Fee
-                            </label>
-                            <Input value={`${fee.percent}%`} readOnly />
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Gas Fees */}
-                      <div className="mb-6 border-t border-gray-200 dark:border-gray-600 pt-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm text-gray-700 dark:text-gray-300">Estimated Gas Fees</h4>
-                          <Badge variant={fee.gas_fee_enabled ? 'default' : 'secondary'}>
-                            {fee.gas_fee_enabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              Fee Type
-                            </label>
-                            <Input value={fee.gas_fee_type === 'fixed' ? 'Fixed Amount' : 'Percentage'} readOnly className="capitalize" />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              {fee.gas_fee_type === 'fixed' ? 'Fixed Amount' : 'Percentage Rate'}
-                            </label>
-                            <Input 
-                              value={fee.gas_fee_type === 'fixed' ? fee.gas_fee_fixed : `${fee.gas_fee_percent}%`} 
-                              readOnly 
+                          {/* Enable Custom Fees Switch */}
+                          <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/60 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div>
+                              <p className="text-xs font-semibold text-gray-900 dark:text-white">
+                                Enable Custom Fees
+                              </p>
+                              <p className="text-[11px] text-gray-500">
+                                Override platform defaults for this user
+                              </p>
+                            </div>
+                            <Switch
+                              checked={Boolean(userOverride?.enabled)}
+                              onCheckedChange={(checked) => handleToggleUserOverride(selectedFeeUser, checked)}
                             />
                           </div>
                         </div>
-                      </div>
+                      )}
+                    </div>
 
-                      {/* Deposit Address */}
-                      <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm text-gray-700 dark:text-gray-300">Deposit Address</h4>
-                          <Badge variant={fee.deposit_enabled ? 'default' : 'destructive'}>
-                            {fee.deposit_enabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                        </div>
-                        
-                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 font-mono text-sm text-gray-900 dark:text-white break-all">
-                              {fee.deposit_address}
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={handleCopyDeposit}
-                              className="flex-shrink-0"
+                    {!selectedFeeUser ? (
+                      /* Empty State: No user selected */
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <User className="w-12 h-12 mx-auto text-gray-400 mb-3 opacity-60" />
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Select a User to Customize Fees</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
+                          Choose any registered user from the dropdown above to configure custom withdrawal fees, gas fee policies, or unique deposit addresses.
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
+                          {users.slice(0, 6).map(u => (
+                            <Button
+                              key={u.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedFeeUserId(u.id)}
+                              className="text-xs"
                             >
-                              {copiedDepositAddresses[asset] ? (
-                                <Check className="w-4 h-4 text-green-600" />
-                              ) : (
-                                <Copy className="w-4 h-4" />
-                              )}
+                              <User className="w-3 h-3 mr-1.5" />
+                              {u.name || u.email}
                             </Button>
-                          </div>
+                          ))}
                         </div>
-
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                          <p className="text-xs text-blue-800 dark:text-blue-200">
-                            <strong>Deposit Instructions:</strong> Users send {asset} to this address. Once the transaction is confirmed on the blockchain, their wallet balance will be automatically credited. Minimum deposit: {asset === 'BTC' ? '0.0001' : asset === 'ETH' ? '0.001' : asset === 'USDT' ? '10' : '0.01'} {asset}.
+                      </div>
+                    ) : (
+                      /* Asset cards grid for selected user */
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Showing personalized rates for <strong>{selectedFeeUser.name || selectedFeeUser.email}</strong>. Coins without custom overrides automatically inherit Global Platform Defaults.
                           </p>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
 
-              <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Important:</strong> Changes to fee structure and deposit addresses will take effect immediately for all users. All modifications are logged in the audit trail. Ensure deposit addresses are correct before enabling deposits.
-                </p>
-              </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {assetConfig
+                            .filter(asset => {
+                              if (!feeAssetSearch.trim()) return true;
+                              const q = feeAssetSearch.toLowerCase();
+                              return (
+                                asset.symbol.toLowerCase().includes(q) ||
+                                asset.name.toLowerCase().includes(q) ||
+                                (asset.network && asset.network.toLowerCase().includes(q))
+                              );
+                            })
+                            .map((asset) => {
+                              const isOverridden = Boolean(userOverride?.fees?.[asset.symbol]);
+                              const effectiveFee = feeService.getEffectiveAssetFee(asset.symbol, selectedFeeUser.id);
+
+                              const handleCopyDeposit = async () => {
+                                const success = await copyToClipboard(effectiveFee.deposit_address);
+                                if (success) {
+                                  setCopiedDepositAddresses(prev => ({ ...prev, [`user_${asset.symbol}`]: true }));
+                                  setTimeout(() => {
+                                    setCopiedDepositAddresses(prev => ({ ...prev, [`user_${asset.symbol}`]: false }));
+                                  }, 2000);
+                                }
+                              };
+
+                              return (
+                                <div
+                                  key={asset.symbol}
+                                  className={`bg-white dark:bg-gray-800 rounded-2xl p-6 border shadow-sm flex flex-col justify-between transition-all ${
+                                    isOverridden
+                                      ? 'border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/20'
+                                      : 'border-gray-200 dark:border-gray-700'
+                                  }`}
+                                >
+                                  <div>
+                                    {/* Card Header */}
+                                    <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+                                      <div className="flex items-center gap-3">
+                                        {asset.logoUrl ? (
+                                          <img src={asset.logoUrl} alt={asset.name} className="w-11 h-11 rounded-full object-cover shadow-sm" />
+                                        ) : (
+                                          <div className={`w-11 h-11 rounded-full ${asset.color} flex items-center justify-center text-white text-lg font-bold shadow-sm`}>
+                                            {asset.icon}
+                                          </div>
+                                        )}
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <h3 className="text-base font-bold text-gray-900 dark:text-white">{asset.name}</h3>
+                                            <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                              {asset.symbol}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            {isOverridden ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                Custom User Rate
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                                Inheriting Global Default
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5">
+                                        {isOverridden && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleResetUserAssetToGlobal(selectedFeeUser, asset.symbol)}
+                                            className="h-8 text-[11px] text-gray-500 hover:text-red-600 px-2"
+                                            title="Revert this coin to global default"
+                                          >
+                                            <RotateCcw className="w-3 h-3" />
+                                          </Button>
+                                        )}
+                                        <Button
+                                          variant={isOverridden ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => handleEditFee(asset.symbol, selectedFeeUser)}
+                                          className="h-8 text-xs font-semibold"
+                                        >
+                                          <Edit className="w-3.5 h-3.5 mr-1.5" />
+                                          {isOverridden ? 'Edit Custom' : 'Set Override'}
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    {/* Withdrawal Fees */}
+                                    <div className="mb-5">
+                                      <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                                        Withdrawal Fees
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                          <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Fixed Fee</label>
+                                          <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                            {effectiveFee.withdraw_fee} {asset.symbol}
+                                          </p>
+                                        </div>
+                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                          <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Percent Fee</label>
+                                          <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                            {effectiveFee.percent}%
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Estimated Gas Fees */}
+                                    <div className="mb-5">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                          Estimated Gas Fees
+                                        </h4>
+                                        <Badge variant={effectiveFee.gas_fee_enabled ? 'default' : 'secondary'} className="text-[10px]">
+                                          {effectiveFee.gas_fee_enabled ? 'Active' : 'Disabled'}
+                                        </Badge>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                          <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Fee Type</label>
+                                          <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">
+                                            {effectiveFee.gas_fee_type === 'fixed' ? 'Fixed Amount' : 'Percentage Rate'}
+                                          </p>
+                                        </div>
+                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                                          <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Rate / Value</label>
+                                          <p className="text-sm font-semibold font-mono text-gray-900 dark:text-white">
+                                            {effectiveFee.gas_fee_type === 'fixed' ? `${effectiveFee.gas_fee_fixed} ${asset.symbol}` : `${effectiveFee.gas_fee_percent}%`}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Deposit Address */}
+                                    <div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                          {isOverridden ? 'User-Specific Deposit Address' : 'Platform Deposit Address'}
+                                        </h4>
+                                        <Badge variant={effectiveFee.deposit_enabled ? 'default' : 'destructive'} className="text-[10px]">
+                                          {effectiveFee.deposit_enabled ? 'Deposits Allowed' : 'Disabled'}
+                                        </Badge>
+                                      </div>
+                                      <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg p-2.5 flex items-center justify-between gap-2">
+                                        <span className="font-mono text-xs text-gray-900 dark:text-white break-all select-all">
+                                          {effectiveFee.deposit_address}
+                                        </span>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={handleCopyDeposit}
+                                          className="h-7 w-7 p-0 flex-shrink-0"
+                                        >
+                                          {copiedDepositAddresses[`user_${asset.symbol}`] ? (
+                                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                          ) : (
+                                            <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </TabsContent>
 
@@ -3043,6 +3723,42 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Custom Fee & Deposit Settings Shortcut */}
+            <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl mb-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 flex items-center justify-center font-bold text-sm shadow-sm">
+                  %
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">Fee & Deposit Configuration</p>
+                    <Badge variant={userFeeOverrides[selectedUser.id]?.enabled ? 'default' : 'secondary'} className="text-[10px]">
+                      {userFeeOverrides[selectedUser.id]?.enabled ? 'Custom Overrides Active' : 'Inheriting Global Defaults'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                    {userFeeOverrides[selectedUser.id]?.enabled
+                      ? `${Object.keys(userFeeOverrides[selectedUser.id]?.fees || {}).length} custom asset rate(s) configured`
+                      : 'Standard platform withdrawal and gas fee rates apply'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-9 border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                onClick={() => {
+                  setShowUserDetails(false);
+                  setSelectedFeeUserId(selectedUser.id);
+                  setFeeScope('user');
+                  setActiveTab('fees');
+                }}
+              >
+                <Settings className="w-3.5 h-3.5 mr-1.5" />
+                Configure Custom Fees
+              </Button>
             </div>
 
             {/* Total Balance - Dark Glassmorphic tone #18181b */}
@@ -5661,6 +6377,7 @@ export default function AdminDashboard({ onBack, darkMode = false, onToggleDarkM
             assetName={assetInfo?.name || editingFee.asset}
             assetIcon={assetInfo?.icon || '?'}
             assetColor={assetInfo?.color || 'bg-gray-500'}
+            targetUser={editingFee.targetUser}
             feeData={editingFee.data}
             onSave={(updatedFee) => handleSaveFee(editingFee.asset, updatedFee)}
             onClose={() => setEditingFee(null)}

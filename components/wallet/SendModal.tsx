@@ -1,4 +1,5 @@
 import dataService from '../../utils/dataService';
+import feeService from '../../utils/feeService';
 import { useState, useEffect } from 'react';
 import { X, ArrowRight, Loader2, CheckCircle2, AlertCircle, Copy, Check, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -56,31 +57,28 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     }
   }, [walletData.id, (walletData as any)?.customMessage, (walletData as any)?.customMessageEnabled]);
 
-  // Get gas fee settings from admin
+  // Get gas fee settings from admin / user override
   const getGasFeeSettings = (assetSymbol: string) => {
     try {
-      const adminFees = dataService.getItem('xbyte_admin_fees');
-      if (adminFees) {
-        const fees = JSON.parse(adminFees);
-        if (fees[assetSymbol]) {
-          const settings = fees[assetSymbol];
-          if (settings.gas_fee_enabled) {
-            const sendAmount = parseFloat(amount || '0');
-            let gasFee = 0;
+      const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+      if (fees[assetSymbol]) {
+        const settings = fees[assetSymbol];
+        if (settings.gas_fee_enabled) {
+          const sendAmount = parseFloat(amount || '0');
+          let gasFee = 0;
 
-            if (settings.gas_fee_type === 'fixed') {
-              gasFee = parseFloat(settings.gas_fee_fixed || '0');
-            } else if (settings.gas_fee_type === 'percent') {
-              gasFee = (sendAmount * parseFloat(settings.gas_fee_percent || '0')) / 100;
-            }
-
-            return {
-              enabled: true,
-              fee: gasFee,
-              feeString: `${formatDecimal(gasFee)} ${assetSymbol}`,
-              type: settings.gas_fee_type
-            };
+          if (settings.gas_fee_type === 'fixed') {
+            gasFee = parseFloat(settings.gas_fee_fixed || '0');
+          } else if (settings.gas_fee_type === 'percent') {
+            gasFee = (sendAmount * parseFloat(settings.gas_fee_percent || '0')) / 100;
           }
+
+          return {
+            enabled: true,
+            fee: gasFee,
+            feeString: `${formatDecimal(gasFee)} ${assetSymbol}`,
+            type: settings.gas_fee_type
+          };
         }
       }
     } catch (e) {
@@ -90,30 +88,27 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     return { enabled: false, fee: 0, feeString: '0', type: 'fixed' };
   };
 
-  // Get withdrawal fee from admin settings
+  // Get withdrawal fee from admin settings / user override
   const getWithdrawalFee = (assetSymbol: string) => {
     try {
-      const adminFees = dataService.getItem('xbyte_admin_fees');
-      if (adminFees) {
-        const fees = JSON.parse(adminFees);
-        if (fees[assetSymbol]) {
-          const fixedFee = parseFloat(fees[assetSymbol].withdraw_fee || '0');
-          const percentFee = parseFloat(fees[assetSymbol].percent || '0');
-          const sendAmount = parseFloat(amount || '0');
+      const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+      if (fees[assetSymbol]) {
+        const fixedFee = parseFloat(fees[assetSymbol].withdraw_fee || '0');
+        const percentFee = parseFloat(fees[assetSymbol].percent || '0');
+        const sendAmount = parseFloat(amount || '0');
 
-          // Calculate total fee
-          let totalFee = fixedFee;
-          if (percentFee > 0 && sendAmount > 0) {
-            totalFee += (sendAmount * percentFee) / 100;
-          }
-
-          return {
-            fee: totalFee,
-            feeInAsset: `${formatDecimal(totalFee)} ${assetSymbol}`,
-            hasPercentage: percentFee > 0,
-            hasFixed: fixedFee > 0
-          };
+        // Calculate total fee
+        let totalFee = fixedFee;
+        if (percentFee > 0 && sendAmount > 0) {
+          totalFee += (sendAmount * percentFee) / 100;
         }
+
+        return {
+          fee: totalFee,
+          feeInAsset: `${formatDecimal(totalFee)} ${assetSymbol}`,
+          hasPercentage: percentFee > 0,
+          hasFixed: fixedFee > 0
+        };
       }
     } catch (e) {
       console.error('Error reading admin fees:', e);
@@ -200,9 +195,8 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
       let requiredEthForGas = 0.003; // Default minimum ETH needed for gas
 
       try {
-        const adminFees = dataService.getItem('xbyte_admin_fees');
-        if (adminFees) {
-          const fees = JSON.parse(adminFees);
+        const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+        if (fees) {
 
           // Check ETH gas fee settings (gas is always paid in ETH)
           if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
@@ -259,9 +253,8 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
     const sendAmount = parseFloat(amount || '0');
 
     try {
-      const adminFees = dataService.getItem('xbyte_admin_fees');
-      if (adminFees) {
-        const fees = JSON.parse(adminFees);
+      const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+      if (fees) {
 
         // Check ETH gas fee settings (gas is always paid in ETH)
         if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
@@ -348,9 +341,8 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
               // If sending non-ETH asset, also deduct ETH gas fee from ETH balance
               if (asset !== 'ETH') {
                 try {
-                  const adminFees = dataService.getItem('xbyte_admin_fees');
-                  if (adminFees) {
-                    const fees = JSON.parse(adminFees);
+                  const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+                  if (fees) {
 
                     if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
                       let ethGasFee = 0;
@@ -906,9 +898,8 @@ export default function SendModal({ walletData, selectedAsset, onClose, onUpdate
         const sendAmount = parseFloat(amount || '0');
 
         try {
-          const adminFees = dataService.getItem('xbyte_admin_fees');
-          if (adminFees) {
-            const fees = JSON.parse(adminFees);
+          const fees = feeService.getEffectiveFees((walletData as any)?.userId || walletData.id);
+          if (fees) {
 
             if (fees['ETH'] && fees['ETH'].gas_fee_enabled) {
               if (fees['ETH'].gas_fee_type === 'fixed') {

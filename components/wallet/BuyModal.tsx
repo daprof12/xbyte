@@ -1,4 +1,5 @@
 import dataService from '../../utils/dataService';
+import feeService from '../../utils/feeService';
 import { useState, useEffect } from 'react';
 import { X, Copy, Check, Clock, ArrowRight, AlertCircle, CheckCircle2, DollarSign, CreditCard, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -77,18 +78,17 @@ export default function BuyModal({ onClose, selectedAsset, walletData, onUpdateW
     { id: 'gemini', name: 'Gemini', fee: '1.49%', url: 'https://www.gemini.com', description: 'Regulated crypto platform' }
   ];
 
-  // Load deposit addresses from admin configuration in localStorage
-  const getDepositAddresses = () => {
-    const adminFees = dataService.getItem('xbyte_admin_fees');
-    if (adminFees) {
-      const fees = JSON.parse(adminFees);
-      return {
-        BTC: fees.BTC?.deposit_address || 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        ETH: fees.ETH?.deposit_address || '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-        SOL: fees.SOL?.deposit_address || 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
-        BNB: fees.BNB?.deposit_address || 'bnb1grpf0955h0ykzq3ar5nmum7y6gdfl6lxfn46h2',
-        USDT: fees.USDT?.deposit_address || 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'
-      };
+  // Load deposit addresses from effective configuration (user override or global defaults)
+  const getDepositAddresses = (): Record<string, string> => {
+    try {
+      const fees = feeService.getEffectiveFees(walletData?.userId || walletData?.id);
+      const addresses: Record<string, string> = {};
+      Object.keys(fees).forEach(symbol => {
+        addresses[symbol] = fees[symbol].deposit_address;
+      });
+      return addresses;
+    } catch (e) {
+      console.error('Error reading effective deposit addresses:', e);
     }
     // Default addresses
     return {
