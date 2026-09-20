@@ -48,28 +48,22 @@ ALTER TABLE public.admin_sent_messages ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for Admins
 CREATE POLICY "Admins can do everything on message_templates" ON public.message_templates
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE id = auth.uid() AND role = 'admin'
-        )
-    );
+    FOR ALL
+    TO authenticated
+    USING ( public.is_admin() )
+    WITH CHECK ( public.is_admin() );
 
 CREATE POLICY "Admins can do everything on smtp_settings" ON public.smtp_settings
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE id = auth.uid() AND role = 'admin'
-        )
-    );
+    FOR ALL
+    TO authenticated
+    USING ( public.is_admin() )
+    WITH CHECK ( public.is_admin() );
 
 CREATE POLICY "Admins can do everything on admin_sent_messages" ON public.admin_sent_messages
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE id = auth.uid() AND role = 'admin'
-        )
-    );
+    FOR ALL
+    TO authenticated
+    USING ( public.is_admin() )
+    WITH CHECK ( public.is_admin() );
 
 -- Seed initial templates if the table is empty
 INSERT INTO public.message_templates (name, subject, body)

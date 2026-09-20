@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Edit2, Trash2, Check, X, Send, Settings, FileText,
   Loader2, Bell, Eye, EyeOff, Smile,
@@ -112,7 +112,8 @@ export default function AdminMessaging({ users }: AdminMessagingProps) {
 
   const deleteSmtpAccount = async (id: string) => {
     if (confirm('Delete this SMTP account?')) {
-      await supabase.from('smtp_settings').delete().eq('id', id);
+      const { error } = await supabase.from('smtp_settings').delete().eq('id', id);
+      if (error) { alert('Error: ' + error.message); return; }
       setSmtpAccounts(smtpAccounts.filter(a => a.id !== id));
     }
   };
@@ -124,17 +125,20 @@ export default function AdminMessaging({ users }: AdminMessagingProps) {
     const dataToSave = { ...editingTemplate }; delete dataToSave.isNew; delete dataToSave.id;
     if (isNew) {
       const { data, error } = await supabase.from('message_templates').insert(dataToSave).select().single();
-      if (!error && data) setMessageTemplates([...messageTemplates, data]);
+      if (error) { alert('Error: ' + error.message); return; }
+      if (data) setMessageTemplates([...messageTemplates, data]);
     } else {
       const { data, error } = await supabase.from('message_templates').update(dataToSave).eq('id', editingTemplate.id).select().single();
-      if (!error && data) setMessageTemplates(messageTemplates.map(t => t.id === data.id ? data : t));
+      if (error) { alert('Error: ' + error.message); return; }
+      if (data) setMessageTemplates(messageTemplates.map(t => t.id === data.id ? data : t));
     }
     setEditingTemplate(null);
   };
 
   const deleteTemplate = async (id: string) => {
     if (confirm('Delete this template?')) {
-      await supabase.from('message_templates').delete().eq('id', id);
+      const { error } = await supabase.from('message_templates').delete().eq('id', id);
+      if (error) { alert('Error: ' + error.message); return; }
       setMessageTemplates(messageTemplates.filter(t => t.id !== id));
     }
   };
