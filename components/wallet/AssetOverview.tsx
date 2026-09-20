@@ -301,33 +301,35 @@ export default function AssetOverview({ asset, onBack, isDark, walletData, onUpd
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between p-4">
-            <button 
-              onClick={onBack} 
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-900 dark:text-white" />
-            </button>
-            
-            <div className="flex-1 text-center">
-              <div className="font-semibold text-lg text-gray-900 dark:text-white">{asset.name}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{asset.symbol}</div>
-            </div>
+          <div className="container mx-auto px-4 py-3 max-w-4xl">
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={onBack} 
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-900 dark:text-white" />
+              </button>
+              
+              <div className="flex-1 text-center">
+                <div className="font-semibold text-lg text-gray-900 dark:text-white">{asset.name}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{asset.symbol}</div>
+              </div>
 
-            <button 
-              onClick={() => setShowChart(!showChart)}
-              className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all ${showChart ? 'bg-purple-100 dark:bg-purple-900/50' : ''}`}
-            >
-              {showChart ? (
-                <Coins className="w-6 h-6 text-gray-900 dark:text-white" />
-              ) : (
-                <TrendingUp className="w-6 h-6 text-gray-900 dark:text-white" />
-              )}
-            </button>
+              <button 
+                onClick={() => setShowChart(!showChart)}
+                className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all ${showChart ? 'bg-purple-100 dark:bg-purple-900/50' : ''}`}
+              >
+                {showChart ? (
+                  <Coins className="w-6 h-6 text-gray-900 dark:text-white" />
+                ) : (
+                  <TrendingUp className="w-6 h-6 text-gray-900 dark:text-white" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-6 pb-24">
+        <div className="container mx-auto px-4 py-6 pb-24 max-w-4xl space-y-6">
           {/* Balance View */}
           {!showChart && (
             <>
